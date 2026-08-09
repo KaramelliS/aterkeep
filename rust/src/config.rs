@@ -75,7 +75,10 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            lang: "tr".into(),
+            // Kurulum ekrani kullanici henuz dil secmemisken gorunur; urun
+            // karari olarak ilk temas Ingilizce. Sihirbazin 1. adiminda secilen
+            // dil aninda tum arayuze (sihirbaz dahil) uygulanir.
+            lang: "en".into(),
             port: 4041,
             bind: "127.0.0.1".into(),
             auth: None,

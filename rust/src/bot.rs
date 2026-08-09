@@ -230,8 +230,18 @@ impl BotManager {
         // Eger surec hic yoksa (kapali), file_status ne derse desin state'i
         // "stopped" olarak goster — stale veriyi maskele.
         let running = self.is_running().await;
+        // "kapali" ile "etkin ama sunucu bekliyor" AYNI SEY DEGIL. Bot sureci
+        // yalnizca sunucu online oldugunda yasar (keepalive sunucu kapanirken
+        // botu durdurur), dolayisiyla enabled=true + running=false NORMAL bir
+        // durumdur. Ikisini "stopped" olarak gostermek kullaniciya "botu actim
+        // ama offline yaziyor" diye yansiyor — panele hangi durumda oldugunu
+        // dogru soylemek icin ayri bir state veriyoruz.
         let state = if !running {
-            "stopped".to_string()
+            if cfg.enabled {
+                "waiting_server".to_string()
+            } else {
+                "stopped".to_string()
+            }
         } else {
             file_status
                 .get("state")
@@ -263,6 +273,9 @@ impl BotManager {
 
         json!({
             "enabled": cfg.enabled,
+            // Panel "etkin mi?" ile "sureci yasiyor mu?" ayrimini gosterir.
+            "running": running,
+            "node_available": node_available(),
             "state": state,
             "name": cfg.name,
             "host": cfg.host,

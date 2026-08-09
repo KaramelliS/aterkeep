@@ -1,186 +1,347 @@
 const $ = (id) => document.getElementById(id);
 const logEl = $("log");
 let I18N = {};
+// Saat/tarih bicimi de dile baglidir; ceviri yuklenene kadar Ingilizce.
+let LOCALE = "en-GB";
 
 // Kurulum/giris kapisi EN ONCE acilir ve dosyanin geri kalanina bagimli
 // degildir. Asagidaki herhangi bir ust seviye ifade hata verirse (eksik bir
 // element, bozuk bir cevap...) kullanici en azindan kurulum veya giris
 // ekranini gorur — bos bir panelle bas basa kalmaz.
-// checkBoot/fillSetupLangs/showLogin `function` bildirimi oldugundan hoist
-// edilir; burada cagirmak guvenlidir.
 checkBoot();
 
-// === ONBOARDING / SETUP ===
-// Kurulum overlay'i tek yerden yonetilir: checkBoot() (asagida) /api/boot'u
-// sorgular ve gerekirse overlay'i acar. Gonderim mantigi setupSubmit'te.
+// Kurulum ve giris butonlari da BURADA baglanir. Daha once dosyanin sonuna
+// yakin bagleniyorlardi: aradaki herhangi bir ust seviye ifade hata verse
+// buton dinleyicisiz kaliyor, kullaniciya "tikliyorum ama hicbir sey olmuyor"
+// diye yansiyordu. Kullanicinin ilerlemesini saglayan iki kontrol, uygulamanin
+// geri kalanindan once ve ondan bagimsiz olarak hazir olmali.
+$("setupSubmit").addEventListener("click", submitSetup);
+$("loginForm").addEventListener("submit", submitLogin);
 
-async function loadI18n() {
-  // Oncelik: kullanicinin bu tarayicida sectigi dil. Yoksa kurulumda secilip
-  // config'e yazilan dil. O da yoksa tr.
-  let lang = localStorage.getItem("aterkeep_lang");
-  if (!lang) {
-    try {
-      lang = (await (await fetch("/api/boot")).json()).lang || "tr";
-    } catch (e) { lang = "tr"; }
+// Yakalanmamis bir hata olursa kullanici bos ekranla kalmasin — ne oldugunu
+// gorsun. Sessizce olen bir buton, en kotu hata bicimidir.
+window.addEventListener("error", (e) => {
+  const box = $("setupStatus");
+  if (box && !$("setupOverlay").hidden) {
+    box.textContent = t("ui_error") + ": " + (e.message || e.error);
+    box.className = "setup-status err";
   }
-  try {
-    const r = await fetch("/api/i18n/" + lang);
-    I18N = await r.json();
-  } catch (e) { I18N = {}; }
-  applyI18n();
-  // language selector
-  const sel = $("langSelect");
-  sel.innerHTML = "";
-  (I18N.langs || []).forEach(l => {
-    const o = document.createElement("option");
-    o.value = l.code; o.textContent = l.name;
-    if (l.code === lang) o.selected = true;
-    sel.appendChild(o);
-  });
-  sel.addEventListener("change", async (e) => {
-    localStorage.setItem("aterkeep_lang", e.target.value);
-    await loadI18n();
-  });
-}
-
-function t(key) {
-  return I18N[key] || key;
-}
-
-function applyI18n() {
-  document.querySelectorAll("[data-i18n]").forEach(el => {
-    const val = t(el.dataset.i18n);
-    // Eger elementin child elementi varsa (span vb.), onlari koru:
-    // sadece leading text node'u guncelle, child elementleri dokunma.
-    if (el.children.length > 0) {
-      const firstChild = el.firstChild;
-      if (firstChild && firstChild.nodeType === Node.TEXT_NODE) {
-        firstChild.nodeValue = val + " ";
-      } else {
-        el.insertBefore(document.createTextNode(val + " "), el.firstChild);
-      }
-    } else {
-      el.textContent = val;
-    }
-  });
-  $("inspNote").textContent = t("insp_note");
-  $("optionsNote").textContent = t("settings_note");
-  const footer = document.querySelector("footer");
-  if (footer) footer.childNodes[0].textContent = t("footer") + " ";
-  renderStatusIfLoaded();
-}
-
-let lastStatus = null;
-function renderStatusIfLoaded() { if (lastStatus) renderStatus(lastStatus); }
-
-const states = {
-  online:    { label: "ONLINE",   cls: "online",   key: "st_already" },
-  already:   { label: "ONLINE",   cls: "online",   key: "st_already" },
-  starting:  { label: "STARTING", cls: "starting", key: "st_starting" },
-  loading:   { label: "LOADING",  cls: "starting", key: "st_starting" },
-  queue:     { label: "QUEUE",    cls: "starting", key: "st_queue" },
-  inline:    { label: "QUEUE",    cls: "starting", key: "st_queue" },
-  eula:      { label: "EULA",     cls: "starting", key: "st_eula" },
-  stopping:  { label: "STOPPING", cls: "starting", key: "st_starting" },
-  saving:    { label: "SAVING",   cls: "starting", key: "st_starting" },
-  waiting:   { label: "WAITING",  cls: "starting", key: "st_starting" },
-  pending:   { label: "PENDING",  cls: "starting", key: "st_starting" },
-  crashed:   { label: "CRASHED",  cls: "offline",  key: "st_offline" },
-  offline:   { label: "OFFLINE",  cls: "offline",  key: "st_offline" },
-  boot:      { label: "BOOT",     cls: "starting", key: "st_starting" },
-  unknown:   { label: "UNKNOWN",  cls: "",         key: "st_unknown" },
-};
-
-// === ANTI-IDLE BOT ===
-const botStates = {
-  stopped:             { label: "OFFLINE",     cls: "bot-offline",     key: "bot_state_stopped" },
-  starting:            { label: "CONNECTING",  cls: "bot-connecting",  key: "bot_state_connecting" },
-  connecting:          { label: "CONNECTING",  cls: "bot-connecting",  key: "bot_state_connecting" },
-  online:              { label: "ONLINE",      cls: "bot-online",      key: "bot_state_online" },
-  waiting:             { label: "WAITING",     cls: "bot-connecting",  key: "bot_state_waiting" },
-  kicked:              { label: "KICKED",      cls: "bot-error",       key: "bot_state_kicked" },
-  error:               { label: "ERROR",       cls: "bot-error",       key: "bot_state_error" },
-  disconnected:        { label: "OFFLINE",     cls: "bot-offline",     key: "bot_state_stopped" },
-  unsupported_version: { label: "UNSUPPORTED", cls: "bot-warn",        key: "bot_state_unsupported" },
-};
-let lastBotState = null;
-
-function renderBot(d) {
-  const st = botStates[d.state] || botStates.stopped;
-  const el = $("botState");
-  el.textContent = st.label;
-  el.className = "badge " + st.cls;
-  $("botDesc").innerHTML = esc(t(st.key));
-  $("botName").textContent = d.name || "—";
-  $("botHost").textContent = d.host ? (d.host + (d.port && d.port !== 25565 ? ":" + d.port : "")) : "—";
-  $("botVersion").textContent = d.server_version || "—";
-  $("botVanished").textContent = d.vanished ? "✓" : "—";
-  // toggle checkbox — only set, never overwrite user interaction mid-flight
-  if (document.activeElement !== $("botToggle")) $("botToggle").checked = !!d.enabled;
-
-  // unsupported version / error notice
-  const note = $("botError");
-  if (d.state === "unsupported_version") {
-    let msg = t("bot_unsupported");
-    const ver = d.max_supported_version ? "≤ " + d.max_supported_version : "";
-    if (msg.includes("{ver}")) msg = msg.replace("{ver}", ver).trim();
-    else if (ver) msg += " (" + ver + ")";
-    note.textContent = msg;
-    note.hidden = false;
-  } else if (d.error) {
-    note.textContent = d.error;
-    note.hidden = false;
-  } else {
-    note.hidden = true;
-  }
-
-  // populate config inputs only when empty (don't clobber typing)
-  const fill = (id, val) => { const e = $(id); if (e && !e.value && val != null) e.value = val; };
-  fill("botCfgName", d.name);
-  fill("botCfgHost", d.host);
-  fill("botCfgPort", d.port);
-  if (d.vanished) {
-    // vanish coords come from config if present; backend may not expose them, leave as-is otherwise
-  }
-
-  // log state transitions
-  if (lastBotState !== null && lastBotState !== d.state) {
-    addLine("bot", `bot → ${st.label.toLowerCase()} (${d.state})`);
-  }
-  lastBotState = d.state;
-}
-
-async function loadBot() {
-  try {
-    const r = await fetch("/api/bot");
-    if (!r.ok) return;
-    const d = await r.json();
-    renderBot(d);
-  } catch (e) { /* bot API not present yet — silent */ }
-}
-
-$("botToggle").addEventListener("change", async (e) => {
-  const on = e.target.checked;
-  addLine("cmd", `$ bot ${on ? "on" : "off"}`);
-  try {
-    await fetch(`/api/bot/toggle?on=${on}`);
-    addLine("bot", t(on ? "bot_enabled" : "bot_disabled"));
-  } catch (e) { addLine("err", "bot toggle failed"); }
-  loadBot();
 });
 
-$("botCfgSave").addEventListener("click", async () => {
-  const btn = $("botCfgSave");
-  const oldText = btn.textContent;
+// ============================== CEVIRI ==============================
+
+/// Anahtari cevirir. `vars` verilirse metindeki {isim} yer tutucularini doldurur.
+/// Anahtar bulunamazsa Ingilizce'ye duser (bunu backend yapar); yine de yoksa
+/// anahtarin kendisi doner — ekranda ham anahtar gormek bir hata isaretidir.
+function t(key, vars) {
+  let s = I18N[key] || key;
+  if (vars) {
+    for (const [k, v] of Object.entries(vars)) s = s.split("{" + k + "}").join(v);
+  }
+  return s;
+}
+
+/// Dil sirasi: (1) bu tarayicida secilen dil, (2) kurulumda config'e yazilan
+/// dil, (3) Ingilizce. Kurulum ekrani henuz secim yapilmamis haldedir, yani
+/// varsayilan olarak Ingilizce gorunur.
+async function currentLang() {
+  const stored = localStorage.getItem("aterkeep_lang");
+  if (stored) return stored;
+  try {
+    return (await (await fetch("/api/boot")).json()).lang || "en";
+  } catch (e) {
+    return "en";
+  }
+}
+
+async function loadI18n(lang) {
+  lang = lang || (await currentLang());
+  try {
+    I18N = await (await fetch("/api/i18n/" + lang)).json();
+  } catch (e) {
+    I18N = {};
+  }
+  LOCALE = I18N.locale || "en-GB";
+  document.documentElement.lang = I18N.lang || lang;
+  document.documentElement.dir = I18N.dir || "ltr";
+  applyI18n();
+  fillLangSelect($("langSelect"), I18N.lang || lang);
+  fillLangSelect($("setupLang"), I18N.lang || lang);
+}
+
+function fillLangSelect(sel, selected) {
+  if (!sel) return;
+  sel.innerHTML = "";
+  (I18N.langs || []).forEach((l) => {
+    const o = document.createElement("option");
+    o.value = l.code;
+    o.textContent = l.name;
+    if (l.code === selected) o.selected = true;
+    sel.appendChild(o);
+  });
+}
+
+/// Dil degisimi: secim ANINDA tum arayuze uygulanir (kurulum sihirbazi dahil).
+async function switchLang(code) {
+  localStorage.setItem("aterkeep_lang", code);
+  await loadI18n(code);
+}
+$("langSelect").addEventListener("change", (e) => switchLang(e.target.value));
+$("setupLang").addEventListener("change", (e) => switchLang(e.target.value));
+
+/// Isaretli her elemani cevirir. Metin icinde <b>/<code> gecmesi gerekenler
+/// data-i18n-html tasir; geri kalani textContent olarak yazilir (guvenli).
+function applyI18n() {
+  document.querySelectorAll("[data-i18n]").forEach((el) => {
+    el.textContent = t(el.dataset.i18n);
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach((el) => {
+    el.innerHTML = t(el.dataset.i18nHtml);
+  });
+  document.querySelectorAll("[data-i18n-ph]").forEach((el) => {
+    el.placeholder = t(el.dataset.i18nPh);
+  });
+  document.querySelectorAll("[data-i18n-title]").forEach((el) => {
+    el.title = t(el.dataset.i18nTitle);
+  });
+  document.querySelectorAll("[data-i18n-aria]").forEach((el) => {
+    el.setAttribute("aria-label", t(el.dataset.i18nAria));
+  });
+  // Dinamik olarak yazilmis metinler data-i18n tasimaz — yeniden cizdir.
+  if (lastStatus) renderStatus(lastStatus);
+  if (lastBot) renderBot(lastBot);
+}
+
+// ============================== DURUM ==============================
+
+let lastStatus = null;
+
+const states = {
+  online:   { label: "ONLINE",   cls: "online",   key: "st_already" },
+  already:  { label: "ONLINE",   cls: "online",   key: "st_already" },
+  starting: { label: "STARTING", cls: "starting", key: "st_starting" },
+  loading:  { label: "LOADING",  cls: "starting", key: "st_starting" },
+  queue:    { label: "QUEUE",    cls: "starting", key: "st_queue" },
+  inline:   { label: "QUEUE",    cls: "starting", key: "st_queue" },
+  eula:     { label: "EULA",     cls: "starting", key: "st_eula" },
+  stopping: { label: "STOPPING", cls: "starting", key: "st_starting" },
+  saving:   { label: "SAVING",   cls: "starting", key: "st_starting" },
+  waiting:  { label: "WAITING",  cls: "starting", key: "st_queue" },
+  pending:  { label: "PENDING",  cls: "starting", key: "st_queue" },
+  crashed:  { label: "CRASHED",  cls: "offline",  key: "st_offline" },
+  offline:  { label: "OFFLINE",  cls: "offline",  key: "st_offline" },
+  boot:     { label: "BOOT",     cls: "starting", key: "st_starting" },
+  unknown:  { label: "UNKNOWN",  cls: "",         key: "st_unknown" },
+};
+
+function fmtTime(d) {
+  return d.toLocaleTimeString(LOCALE, { hour12: false });
+}
+
+function renderStatus(s) {
+  lastStatus = s;
+  const st = states[s.state] || states.unknown;
+  const el = $("statusValue");
+  el.textContent = st.label;
+  el.className = "badge " + st.cls;
+  $("statusDesc").textContent = t(st.key);
+  $("serverAddr").textContent = s.server_addr || "—";
+
+  // Kuyruk karti. Sira onayi arka planda otomatik gonderilir; kart yalnizca
+  // bilgi amaclidir (queue_auto notu bunu soyler).
+  const q = s.queue;
+  const qb = $("queueBox");
+  if (q && (q.position !== undefined || q.time)) {
+    qb.hidden = false;
+    $("queueTime").textContent = q.time || "—";
+    $("queuePos").textContent = q.position !== undefined ? `${q.position} / ${q.count}` : "—";
+    const pct = q.percent !== undefined ? Math.max(0, Math.min(100, q.percent)) : 0;
+    $("queuePct").textContent = pct.toFixed(0) + "%";
+    $("queueFill").style.width = pct + "%";
+  } else {
+    qb.hidden = true;
+  }
+
+  $("serverId").textContent = s.server_id || "—";
+  $("lastCheck").textContent = s.last_check ? fmtTime(new Date(s.last_check * 1000)) : "—";
+  $("loopState").textContent = s.running ? "…" : s.auto ? "24/7" : "off";
+  $("autoToggle").checked = !!s.auto;
+
+  $("metricPlayers").textContent = `${s.players ?? 0}/${s.slots ?? 20}`;
+  $("metricTps").textContent = s.tps ? Number(s.tps).toFixed(1) : "—";
+  $("metricRam").textContent = s.heap ? `${s.heap} MB` : "—";
+  $("metricLink").textContent = s.ws_connected ? t("link_live") : t("link_poll");
+  $("metricLink").className = "metric-value " + (s.ws_connected ? "ok" : "dim");
+
+  if (s.last_request) renderInspector(s.last_request);
+  // Yalnizca aksiyon butonlari kilitlenir; form/kaydet butonlari serbest kalir.
+  document.querySelectorAll("[data-action]").forEach((b) => (b.disabled = !!s.running));
+}
+
+function renderInspector(req) {
+  if (!req) return;
+  const sid = (lastStatus && lastStatus.server_id) || "?";
+  $("inspCurl").textContent = `$ ${t("insp_req")} SERVER=${sid}`;
+  $("inspJson").textContent = JSON.stringify(req.response, null, 2);
+  const st = req.response && req.response.data && req.response.data.status;
+  $("inspNote").textContent = st ? t("insp_state", { st }) : t("insp_nostate");
+}
+
+/// Her basarili yoklamada nabiz noktasini yanip sondurur: panelin canli
+/// oldugunu ve verinin tazelendigini kullanici gorebilsin.
+function pulse() {
+  const p = $("updatePulse");
+  if (!p) return;
+  p.classList.remove("beat");
+  // reflow — animasyonu yeniden tetiklemek icin gerekli
+  void p.offsetWidth;
+  p.classList.add("beat");
+  p.title = t("updated") + " " + fmtTime(new Date());
+}
+
+async function refresh() {
+  try {
+    const r = await fetch("/api/status");
+    if (r.status === 401) {
+      showLogin(true);
+      return;
+    }
+    renderStatus(await r.json());
+    pulse();
+  } catch (e) {
+    addLine("err", t("refresh_fail"));
+  }
+}
+
+// ============================== BOT ==============================
+
+const botStates = {
+  stopped:             { key: "bot_state_stopped",        cls: "offline",  desc: "bot_desc_off" },
+  waiting_server:      { key: "bot_state_waiting_server", cls: "starting", desc: "bot_desc_waiting" },
+  waiting:             { key: "bot_state_waiting",        cls: "starting", desc: "bot_desc_waiting" },
+  starting:            { key: "bot_state_connecting",     cls: "starting", desc: "bot_desc_connecting" },
+  connecting:          { key: "bot_state_connecting",     cls: "starting", desc: "bot_desc_connecting" },
+  online:              { key: "bot_state_online",         cls: "online",   desc: "bot_desc_online" },
+  kicked:              { key: "bot_state_kicked",         cls: "offline",  desc: "bot_desc_waiting" },
+  error:               { key: "bot_state_error",          cls: "offline",  desc: "bot_desc_off" },
+  disconnected:        { key: "bot_state_waiting_server", cls: "starting", desc: "bot_desc_waiting" },
+  unsupported_version: { key: "bot_state_unsupported",    cls: "warn",     desc: "bot_desc_off" },
+};
+
+let lastBot = null;
+let lastBotState = null;
+
+function renderBot(b) {
+  lastBot = b;
+  const cfg = b.config || {};
+  const st = b.status || {};
+  const meta = botStates[st.state] || botStates.stopped;
+
+  const badge = $("botStateBadge");
+  badge.textContent = t(meta.key);
+  badge.className = "badge " + meta.cls;
+
+  // "Etkin" ile "sureci calisiyor" ayri seylerdir: bot yalnizca sunucu online
+  // oldugunda yasar. Kullanici botu acip sunucu kapaliyken "offline" gorunce
+  // bozuk sandi — artik hangi durumda oldugu yaziyor.
+  $("botDetail").textContent = st.error && st.state !== "unsupported_version"
+    ? t("bot_error_prefix") + ": " + st.error
+    : t(meta.desc);
+  $("botStateText").textContent = st.state || "stopped";
+  $("botRunning").textContent = b.running ? t("bot_run_on") : t("bot_run_off");
+  $("botName").textContent = cfg.name || st.name || "—";
+  const host = cfg.host || st.host;
+  const port = cfg.port || st.port;
+  $("botHost").textContent = host ? host + (port && port !== 25565 ? ":" + port : "") : "—";
+  $("botServerVer").textContent = st.server_version || "—";
+  $("botMaxVer").textContent = st.max_supported_version || "—";
+  $("botVanished").textContent = st.vanished ? "✓" : "—";
+  $("botNodeAvail").textContent = b.node_available ? t("bot_node_yes") : t("bot_node_no");
+
+  if (document.activeElement !== $("botToggle")) $("botToggle").checked = !!cfg.enabled;
+
+  // Kullanici yazarken alanlarin ustune yazma.
+  const active = document.activeElement;
+  const fill = (id, val) => {
+    const el = $(id);
+    if (el && el !== active && val != null && val !== "") el.value = val;
+  };
+  fill("cfgName", cfg.name);
+  fill("cfgHost", cfg.host);
+  fill("cfgPort", cfg.port);
+  fill("cfgVX", cfg.vanish_x);
+  fill("cfgVY", cfg.vanish_y);
+  fill("cfgVZ", cfg.vanish_z);
+
+  const ebox = $("botErrorBox");
+  if (st.error && st.state !== "unsupported_version") {
+    ebox.hidden = false;
+    ebox.textContent = t("bot_error_prefix") + ": " + st.error;
+  } else {
+    ebox.hidden = true;
+  }
+
+  // Surum uyusmazligi paneli tepeden uyarir — bot asla baglanamayacagi icin
+  // sessiz kalmak yanlis olur.
+  const banner = $("botVersionBanner");
+  if (st.state === "unsupported_version") {
+    banner.hidden = false;
+    banner.innerHTML = t("bot_version_warn", {
+      server: st.server_version || "?",
+      max: st.max_supported_version || "?",
+    });
+  } else {
+    banner.hidden = true;
+  }
+
+  if (lastBotState !== null && lastBotState !== st.state) {
+    addLine("bot", `bot → ${st.state}`);
+  }
+  lastBotState = st.state;
+}
+
+/// Tek uc, tek cizim: /api/bot/config config + status + running + node_available
+/// dondurur. Daha once iki ayri yoklama (loadBot ve refreshBot) ayni alanlari
+/// farkli sekillerde yazip birbirini eziyordu.
+async function refreshBot() {
+  try {
+    const r = await fetch("/api/bot/config");
+    if (!r.ok) return;
+    renderBot(await r.json());
+  } catch (e) {}
+}
+
+async function setBotEnabled(on) {
+  addLine("cmd", `$ bot ${on ? "on" : "off"}`);
+  try {
+    await fetch("/api/bot/toggle", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ enabled: on }),
+    });
+    addLine("bot", t(on ? "bot_enabled" : "bot_disabled"));
+  } catch (e) {
+    addLine("err", "bot toggle failed");
+  }
+  refreshBot();
+}
+
+$("botToggle").addEventListener("change", (e) => setBotEnabled(e.target.checked));
+$("botStartBtn").addEventListener("click", () => setBotEnabled(true));
+$("botStopBtn").addEventListener("click", () => setBotEnabled(false));
+
+$("cfgSaveBtn").addEventListener("click", async () => {
+  const btn = $("cfgSaveBtn");
+  const old = btn.textContent;
   btn.disabled = true;
   btn.textContent = "…";
   const body = {
-    name: $("botCfgName").value.trim(),
-    host: $("botCfgHost").value.trim(),
-    port: parseInt($("botCfgPort").value, 10),
-    vanish_x: parseFloat($("botCfgVX").value),
-    vanish_y: parseFloat($("botCfgVY").value),
-    vanish_z: parseFloat($("botCfgVZ").value),
+    name: $("cfgName").value.trim(),
+    host: $("cfgHost").value.trim(),
+    port: parseInt($("cfgPort").value, 10),
+    vanish_x: parseFloat($("cfgVX").value),
+    vanish_y: parseFloat($("cfgVY").value),
+    vanish_z: parseFloat($("cfgVZ").value),
   };
   try {
     const r = await fetch("/api/bot/config", {
@@ -190,102 +351,42 @@ $("botCfgSave").addEventListener("click", async () => {
     });
     const j = await r.json();
     addLine(j.ok ? "bot" : "err", j.ok ? `${t("bot_cfg_title")}: OK` : "bot config ERR " + JSON.stringify(j));
-  } catch (e) { addLine("err", "bot config save failed"); }
+  } catch (e) {
+    addLine("err", "bot config save failed");
+  }
   btn.disabled = false;
-  btn.textContent = oldText;
-  loadBot();
+  btn.textContent = old;
+  refreshBot();
 });
 
-function clock() { $("clock").textContent = new Date().toLocaleTimeString("tr-TR"); }
-setInterval(clock, 1000); clock();
+// ============================== LOG ==============================
+
+function clock() {
+  $("clock").textContent = fmtTime(new Date());
+}
+setInterval(clock, 1000);
+clock();
 
 function addLine(kind, text, container) {
   container = container || logEl;
-  const ts = new Date().toLocaleTimeString("tr-TR", { hour12: false });
   const div = document.createElement("div");
   div.className = "line";
-  div.innerHTML = `<span class="time">[${ts}]</span> <span class="k-${kind}">${esc(text)}</span>`;
+  div.innerHTML = `<span class="time">[${fmtTime(new Date())}]</span> <span class="k-${kind}">${esc(text)}</span>`;
   container.appendChild(div);
   while (container.children.length > 500) container.removeChild(container.firstChild);
   container.scrollTop = container.scrollHeight;
 }
-function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function esc(s) {
+  return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
 
 function bootLines() {
-  [
-    ["sys", "aterkeep (rust)"],
-    ["ok", "session.enc cozuldu"],
-    ["ok", "canli akis aktif"],
-    ["http", "sifreli HTTP"],
-  ].forEach(([k, t], i) => setTimeout(() => addLine(k, t), 250 + i * 220));
+  ["boot_1", "boot_2", "boot_3", "boot_4"].forEach((k, i) =>
+    setTimeout(() => addLine(["sys", "ok", "ok", "http"][i], t(k)), 250 + i * 220)
+  );
 }
 
-function renderStatus(s) {
-  lastStatus = s;
-  const st = states[s.state] || states.unknown;
-  const el = $("statusValue");
-  el.textContent = st.label;
-  el.className = "badge " + st.cls;
-  $("statusDesc").innerHTML = esc(t(st.key));
-  $("serverAddr").textContent = s.server_addr || "—";
-  // kuyruk karti (sirada beklerken ws/poll besler)
-  const q = s.queue;
-  const qb = $("queueBox");
-  if (q && (q.position !== undefined || q.time)) {
-    qb.hidden = false;
-    $("queueTime").textContent = q.time || "—";
-    $("queuePos").textContent = q.position !== undefined ? `${q.position} / ${q.count}` : "—";
-    const pct = q.percent !== undefined ? Math.max(0, Math.min(100, q.percent)) : 0;
-    $("queuePct").textContent = `%${pct.toFixed(0)}`;
-    $("queueFill").style.width = pct + "%";
-  } else {
-    qb.hidden = true;
-  }
-  $("serverId").textContent = s.server_id || "—";
-  $("lastCheck").textContent = s.last_check ? new Date(s.last_check * 1000).toLocaleTimeString("tr-TR", { hour12: false }) : "—";
-  $("loopState").textContent = s.running ? "…" : (s.auto ? "7/24" : "off");
-  $("autoToggle").checked = !!s.auto;
-
-  // ust metrik seridi
-  $("metricPlayers").textContent = `${s.players ?? 0}/${s.slots ?? 20}`;
-  $("metricTps").textContent = s.tps ? Number(s.tps).toFixed(1) : "—";
-  $("metricRam").textContent = s.heap ? `${s.heap} MB` : "—";
-  $("metricLink").textContent = s.ws_connected ? "canlı" : "yoklama";
-  $("metricLink").className = "metric-value " + (s.ws_connected ? "ok" : "dim");
-
-  if (s.last_request) renderInspector(s.last_request);
-  // Yalnizca aksiyon butonlari kilitlenir; form/kaydet butonlari serbest kalir.
-  document.querySelectorAll("[data-action]").forEach(b => (b.disabled = !!s.running));
-}
-
-function renderInspector(req) {
-  if (!req) return;
-  const endpointMap = {
-    start: "server/start",
-    stop: "server/stop",
-    restart: "server/restart",
-    "start+eula": "server/start",
-    cancel: "server/cancel",
-    extend: "server/extend",
-  };
-  const action = req.action;
-  const ep = (action && endpointMap[action]) || action || "?";
-  const sid = (lastStatus && lastStatus.server_id) || "?";
-  $("inspCurl").textContent = `$ (sifreli istek) SERVER=${sid}`;
-  $("inspJson").textContent = JSON.stringify(req.response, null, 2);
-  const st = req.response && req.response.data && req.response.data.status;
-  $("inspNote").textContent = st ? `Cevaptaki state: "${st}".` : "Cevapta state yok — hata mesajına bak.";
-}
-
-async function refresh() {
-  try {
-    const r = await fetch("/api/status");
-    renderStatus(await r.json());
-  } catch (e) {
-    console.warn("refresh failed:", e);
-    addLine("err", "durum yenilenemedi");
-  }
-}
+// ============================== AKSIYONLAR ==============================
 
 // SADECE data-action tasiyan butonlar sunucu aksiyonu tetikler. Onceden bu
 // secici tum ".btn" elemanlariniydi — "Kaydet" veya bot butonlarina basmak da
@@ -294,12 +395,13 @@ document.querySelectorAll("[data-action]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const action = btn.dataset.action;
     addLine("cmd", `$ aternos ${action}`);
-    // cancel/extend/confirm ayri endpoint'lerde (kuyruk iptali / idle uzatma /
-    // kuyruk onayi) — start/stop/restart ise /api/action/ altinda.
-    const url = (action === "cancel" || action === "extend" || action === "confirm")
-      ? `/api/${action}`
-      : `/api/action/${action}`;
-    try { await fetch(url); } catch (e) {}
+    const url =
+      action === "cancel" || action === "extend" || action === "confirm"
+        ? `/api/${action}`
+        : `/api/action/${action}`;
+    try {
+      await fetch(url);
+    } catch (e) {}
     refresh();
   });
 });
@@ -309,45 +411,42 @@ $("autoToggle").addEventListener("change", async (e) => {
   addLine("sys", `auto ${e.target.checked ? "ON" : "OFF"}`);
 });
 
-document.querySelectorAll(".tab").forEach((t) => {
-  t.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(x => x.classList.remove("active"));
-    document.querySelectorAll(".tab-panel").forEach(x => x.classList.remove("active"));
-    t.classList.add("active");
-    $(`tab-${t.dataset.tab}`).classList.add("active");
-    if (t.dataset.tab === "console") loadConsole();
-    if (t.dataset.tab === "settings") loadOptions();
-    if (t.dataset.tab === "players") loadPlayers();
-    if (t.dataset.tab === "bot") refreshBot();
+document.querySelectorAll(".tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach((x) => x.classList.remove("active"));
+    document.querySelectorAll(".tab-panel").forEach((x) => x.classList.remove("active"));
+    tab.classList.add("active");
+    $(`tab-${tab.dataset.tab}`).classList.add("active");
+    if (tab.dataset.tab === "console") loadConsole();
+    if (tab.dataset.tab === "settings") loadOptions();
+    if (tab.dataset.tab === "players") loadPlayers();
+    if (tab.dataset.tab === "bot") refreshBot();
   });
 });
 
 async function loadConsole() {
   try {
-    const r = await fetch("/api/console");
-    const data = await r.json();
+    const data = await (await fetch("/api/console")).json();
     // API ya {"lines":[...], "source":"ws"|"http"} ya da eski usul [...] dizi doner.
-    const lines = Array.isArray(data) ? data : (data.lines || []);
+    const lines = Array.isArray(data) ? data : data.lines || [];
     const el = $("serverConsole");
     el.innerHTML = "";
-    lines.forEach(l => {
+    lines.forEach((l) => {
       const div = document.createElement("div");
       div.className = "line";
-      // Her eleman ya [time, level, msg] dizisi ya da {t, level, text} nesnesi.
-      const time = Array.isArray(l) ? l[0] : (l.t || l.time || "");
-      const level = Array.isArray(l) ? l[1] : (l.level || l.kind || "");
-      const msg = Array.isArray(l) ? l[2] : (l.text || l.line || "");
+      const time = Array.isArray(l) ? l[0] : l.t || l.time || "";
+      const level = Array.isArray(l) ? l[1] : l.level || l.kind || "";
+      const msg = Array.isArray(l) ? l[2] : l.text || l.line || "";
       div.innerHTML = `<span class="time">[${esc(time)}]</span> <span class="k-dim">[${esc(level)}]</span> ${esc(msg)}`;
       el.appendChild(div);
     });
     el.scrollTop = el.scrollHeight;
-  } catch (e) { console.warn("loadConsole failed:", e); }
+  } catch (e) {}
 }
 
 async function loadOptions() {
   try {
-    const r = await fetch("/api/options");
-    const opts = await r.json();
+    const opts = await (await fetch("/api/options")).json();
     const tb = document.querySelector("#optionsTable tbody");
     tb.innerHTML = "";
     Object.entries(opts).forEach(([k, v]) => {
@@ -356,77 +455,55 @@ async function loadOptions() {
       name.textContent = k;
       const val = document.createElement("td");
       const input = document.createElement("input");
+      input.className = "input mono";
       input.value = v;
       val.appendChild(input);
       const act = document.createElement("td");
       const btn = document.createElement("button");
-      btn.className = "save-btn";
+      btn.className = "btn btn-xs";
       btn.textContent = t("save");
       btn.onclick = async () => {
         btn.textContent = "…";
         try {
-          const res = await fetch(`/api/options/set?name=${encodeURIComponent(k)}&value=${encodeURIComponent(input.value)}`);
+          const res = await fetch(
+            `/api/options/set?name=${encodeURIComponent(k)}&value=${encodeURIComponent(input.value)}`
+          );
           const j = await res.json();
           addLine(j.success ? "ok" : "err", `${k}=${input.value} ${j.success ? "saved" : "ERR " + JSON.stringify(j)}`);
-        } catch (e) { addLine("err", "save failed"); }
+        } catch (e) {
+          addLine("err", "save failed");
+        }
         btn.textContent = t("save");
       };
       act.appendChild(btn);
       tr.append(name, val, act);
       tb.appendChild(tr);
     });
-  } catch (e) { console.warn("loadOptions failed:", e); }
+  } catch (e) {}
 }
 
 async function loadPlayers() {
   try {
-    const r = await fetch("/api/players");
-    const p = await r.json();
+    const p = await (await fetch("/api/players")).json();
     $("playersCount").textContent = `${p.online || 0}`;
     const el = $("playerList");
     el.innerHTML = "";
     if (p.names && p.names.length) {
-      p.names.forEach(n => {
-        const chip = document.createElement("div");
-        chip.className = "player-chip";
+      p.names.forEach((n) => {
+        const chip = document.createElement("li");
         chip.textContent = n;
         el.appendChild(chip);
       });
     } else {
-      const empty = document.createElement("div");
-      empty.className = "player-empty";
+      const empty = document.createElement("li");
+      empty.className = "empty";
       empty.textContent = t("no_players");
       el.appendChild(empty);
     }
-  } catch (e) { console.warn("loadPlayers failed:", e); }
-}
-
-loadI18n();
-bootLines();
-refresh();
-checkNeedsSetup();
-loadBot();
-setInterval(refresh, 3000);
-setInterval(loadBot, 5000);
-setInterval(() => { if ($("tab-console").classList.contains("active")) loadConsole(); }, 10000);
-setInterval(refreshBot, 4000);
-
-// ---------- BOOT / LOGIN / SETUP ----------
-
-// Dil listesini kurulum ekranindaki secime doldurur.
-async function fillSetupLangs(selected) {
-  try {
-    const langs = await (await fetch("/api/i18n")).json();
-    const sel = $("setupLang");
-    sel.innerHTML = "";
-    langs.forEach(l => {
-      const o = document.createElement("option");
-      o.value = l.code; o.textContent = l.name;
-      if (l.code === selected) o.selected = true;
-      sel.appendChild(o);
-    });
   } catch (e) {}
 }
+
+// ============================== BOOT / LOGIN / SETUP ==============================
 
 function showLogin(show) {
   $("loginOverlay").hidden = !show;
@@ -439,26 +516,29 @@ async function checkBoot() {
   try {
     const b = await (await fetch("/api/boot")).json();
     if (b.setup_mode) {
-      await fillSetupLangs(b.lang);
       $("setupOverlay").hidden = false;
-      document.querySelectorAll(".tab").forEach(t => t.disabled = true);
+      document.querySelectorAll(".tab").forEach((x) => (x.disabled = true));
       return;
     }
     if (b.auth_enabled) {
       // Korumali bir uca istek at: 401 gelirse giris gerekiyor demektir.
       const probe = await fetch("/api/status");
-      if (probe.status === 401) { showLogin(true); return; }
+      if (probe.status === 401) {
+        showLogin(true);
+        return;
+      }
     }
     // Panele disaridan erisilebiliyorsa uyar (localhost disi adres).
     const host = location.hostname;
     if (host !== "127.0.0.1" && host !== "localhost" && host !== "[::1]") {
       const el = $("exposureBanner");
-      el.textContent = "⚠ Bu panele ağ üzerinden erişiliyor. Parolan tek savunmandır — güçlü tut ve mümkünse VPN arkasına al.";
+      el.textContent = t("exposure_warn");
       el.hidden = false;
     }
   } catch (e) {}
 }
-$("loginForm").addEventListener("submit", async (ev) => {
+
+async function submitLogin(ev) {
   ev.preventDefault();
   const err = $("loginError");
   const btn = $("loginBtn");
@@ -472,56 +552,40 @@ $("loginForm").addEventListener("submit", async (ev) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ password: $("loginPassword").value }),
     });
-    if (r.ok) { location.reload(); return; }
-    const j = await r.json().catch(() => ({}));
-    err.textContent = j.error || "Parola hatalı";
+    if (r.ok) {
+      location.reload();
+      return;
+    }
+    err.textContent = t("login_bad");
     err.hidden = false;
   } catch (e) {
-    err.textContent = "Ağ hatası";
+    err.textContent = t("login_neterr");
     err.hidden = false;
   }
   btn.disabled = false;
   btn.textContent = old;
   $("loginPassword").select();
-});
+}
 
-$("copyAddr").addEventListener("click", async () => {
-  const addr = $("serverAddr").textContent.trim();
-  if (!addr || addr === "—") return;
-  try {
-    await navigator.clipboard.writeText(addr);
-    const b = $("copyAddr");
-    b.textContent = "kopyalandı";
-    setTimeout(() => (b.textContent = "kopyala"), 1200);
-  } catch (e) { /* clipboard izni yoksa sessiz gec */ }
-});
-
-$("logoutBtn").addEventListener("click", async () => {
-  await fetch("/api/logout", { method: "POST" });
-  location.reload();
-});
-
-$("resetSessionBtn").addEventListener("click", async () => {
-  if (!confirm("Mevcut oturum silinecek ve setup ekranına dönülecek. Devam?")) return;
-  await fetch("/api/setup/reset", { method: "POST" });
-  location.reload();
-});
-
-$("setupSubmit").addEventListener("click", async () => {
+async function submitSetup() {
   const cookie = $("setupCookie").value.trim();
-  let token = $("setupToken").value.trim();
+  const token = $("setupToken").value.trim();
   const password = $("setupPassword").value;
   const password2 = $("setupPassword2").value;
   const lang = $("setupLang").value;
   const st = $("setupStatus");
-  if (password.length < 4) { st.textContent = "Panel parolası en az 4 karakter olmalı"; st.className = "setup-status err"; return; }
-  if (password !== password2) { st.textContent = "Parolalar eşleşmiyor"; st.className = "setup-status err"; return; }
-  if (!cookie) { st.textContent = "Cookie boş"; st.className = "setup-status err"; return; }
-  if (!cookie.includes("ATERNOS_SESSION")) {
-    st.innerHTML = "Cookie'de ATERNOS_SESSION yok — Network sekmesinden tüm cookie header'ını kopyaladığından emin ol"; st.className = "setup-status err"; return;
-  }
-  if (!token) { st.textContent = "Token gerekli (F12 → Console → window.AJAX_TOKEN + '|' + window.generateAjaxToken())"; st.className = "setup-status err"; return; }
-  st.textContent = "kuruluyor..."; st.className = "setup-status";
+  const fail = (key) => {
+    st.textContent = t(key);
+    st.className = "setup-status err";
+  };
+  if (password.length < 4) return fail("setup_err_pw_short");
+  if (password !== password2) return fail("setup_err_pw_match");
+  if (!cookie) return fail("setup_err_cookie_empty");
+  if (!cookie.includes("ATERNOS_SESSION")) return fail("setup_err_cookie_session");
+  if (!token) return fail("setup_err_token");
+
+  st.textContent = t("setup_busy");
+  st.className = "setup-status";
   $("setupSubmit").disabled = true;
   try {
     const r = await fetch("/api/setup", {
@@ -531,8 +595,9 @@ $("setupSubmit").addEventListener("click", async () => {
     });
     const j = await r.json();
     if (j.ok) {
-      st.textContent = "✓ " + (j.msg || "başarılı"); st.className = "setup-status ok";
-      // boot polling: setup_mode false olunca direkt gizle + reload (race condition onle)
+      st.textContent = "✓ " + (j.msg || t("setup_ok"));
+      st.className = "setup-status ok";
+      // Kurulum kendini yeniden baslatir; setup_mode dusunce sayfayi yenile.
       let tries = 0;
       const poll = async () => {
         tries++;
@@ -544,91 +609,47 @@ $("setupSubmit").addEventListener("click", async () => {
           } else if (tries < 8) {
             setTimeout(poll, 400);
           } else {
-            // backend hala setup diyor — yine de reload, belki duzelir
             location.reload();
           }
-        } catch (e) { if (tries < 8) setTimeout(poll, 400); }
+        } catch (e) {
+          if (tries < 8) setTimeout(poll, 400);
+        }
       };
       setTimeout(poll, 600);
     } else {
-      st.textContent = "✗ " + (j.error || "hata"); st.className = "setup-status err";
+      st.textContent = "✗ " + (j.error || t("setup_fail"));
+      st.className = "setup-status err";
     }
-  } catch (e) { st.textContent = "✗ ağ hatası"; st.className = "setup-status err"; }
+  } catch (e) {
+    st.textContent = "✗ " + t("setup_neterr");
+    st.className = "setup-status err";
+  }
   $("setupSubmit").disabled = false;
-});
-
-// ---------- BOT ----------
-function refreshStatusBanner(s) {
-  // surum uyarisi: bot baglanamadi + unsupported_version
-  fetch("/api/bot/status").then(r => r.json()).then(b => {
-    const st = b.status || {};
-    const banner = $("botVersionBanner");
-    if (st.state === "unsupported_version") {
-      banner.hidden = false;
-      banner.className = "banner banner-warn";
-      banner.innerHTML = `⚠ <b>Bot desteklenmeyen sürüm:</b> Sunucu ${st.server_version} ancak bot en fazla <b>${st.max_supported_version}</b> destekliyor. Aternos panelinde <b>Yazılım → Vanilla ${st.max_supported_version}</b> sürümüne düşürün, sonra bot otomatik bağlanır.`;
-    } else if (st.state === "error" && st.error) {
-      banner.hidden = false;
-      banner.className = "banner banner-warn";
-      banner.textContent = "⚠ Bot hatası: " + st.error;
-    } else {
-      banner.hidden = true;
-    }
-  }).catch(() => {});
 }
 
-async function refreshBot() {
-  const s = lastStatus;
-  if (s && s.state) refreshStatusBanner(s);
-  if (!$("tab-bot")) return;
+$("copyAddr").addEventListener("click", async () => {
+  const addr = $("serverAddr").textContent.trim();
+  if (!addr || addr === "—") return;
   try {
-    const r = await fetch("/api/bot/config");
-    const b = await r.json();
-    const cfg = b.config || {};
-    if (document.activeElement?.tagName !== "INPUT" || !$("tab-bot").classList.contains("active")) {
-      $("cfgHost").value = cfg.host || "";
-      $("cfgPort").value = cfg.port || "";
-      $("cfgName").value = cfg.name || "";
-      $("cfgVX").value = cfg.vanish_x ?? "";
-      $("cfgVY").value = cfg.vanish_y ?? "";
-      $("cfgVZ").value = cfg.vanish_z ?? "";
-    }
-    const st = b.status || {};
-    const running = b.running;
-    $("botStateBadge").textContent = running ? (st.connected ? "ONLINE" : "ÇALIŞIYOR") : "KAPALI";
-    $("botStateBadge").className = "badge " + (st.connected ? "online" : (running ? "starting" : "offline"));
-    $("botStateText").textContent = st.state || (running ? "starting" : "stopped");
-    $("botServerVer").textContent = st.server_version || "—";
-    $("botMaxVer").textContent = st.max_supported_version || "—";
-    $("botNodeAvail").textContent = b.node_available ? "var" : "YOK (kurulu değil)";
-    $("botDetail").textContent = st.error ? st.error : (running ? "aktif" : "devre dışı");
-    const ebox = $("botErrorBox");
-    if (st.error && st.state !== "unsupported_version") { ebox.hidden = false; ebox.textContent = st.error; }
-    else { ebox.hidden = true; }
+    await navigator.clipboard.writeText(addr);
+    const b = $("copyAddr");
+    b.textContent = t("copied");
+    setTimeout(() => (b.textContent = t("copy")), 1200);
   } catch (e) {}
-}
+});
 
-$("cfgSaveBtn").addEventListener("click", async () => {
-  const body = {
-    host: $("cfgHost").value, port: parseInt($("cfgPort").value),
-    name: $("cfgName").value,
-    vanish_x: parseFloat($("cfgVX").value), vanish_y: parseFloat($("cfgVY").value), vanish_z: parseFloat($("cfgVZ").value),
-  };
-  $("cfgSaveBtn").textContent = "…";
-  await fetch("/api/bot/config", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-  $("cfgSaveBtn").textContent = "Kaydet";
-  refreshBot();
+$("logoutBtn").addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" });
+  location.reload();
 });
-$("botStartBtn").addEventListener("click", async () => {
-  await fetch("/api/bot/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: true }) });
-  addLine("cmd", "$ bot start");
-  refreshBot();
+
+$("resetSessionBtn").addEventListener("click", async () => {
+  if (!confirm(t("reset_confirm"))) return;
+  await fetch("/api/setup/reset", { method: "POST" });
+  location.reload();
 });
-$("botStopBtn").addEventListener("click", async () => {
-  await fetch("/api/bot/toggle", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enabled: false }) });
-  addLine("cmd", "$ bot stop");
-  refreshBot();
-});
+
+// ============================== CANLI AKIS ==============================
 
 const es = new EventSource("/api/stream");
 es.onmessage = (ev) => {
@@ -637,3 +658,21 @@ es.onmessage = (ev) => {
     if (d.line) addLine(d.kind, d.line);
   } catch (e) {}
 };
+
+// Sekme arka plandayken tarayici zamanlayicilari kisar; one gelince veriyi
+// hemen tazele — kullanici bayat sayilara bakmasin.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    refresh();
+    refreshBot();
+  }
+});
+
+loadI18n().then(bootLines);
+refresh();
+refreshBot();
+setInterval(refresh, 3000);
+setInterval(refreshBot, 3000);
+setInterval(() => {
+  if ($("tab-console").classList.contains("active")) loadConsole();
+}, 10000);

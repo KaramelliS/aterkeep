@@ -104,6 +104,21 @@ a { color: var(--ok); }
 }
 .copy:hover { color: var(--fg); }
 .clock { color: var(--fg-mute); font-size: 12px; }
+.bar-right { display: flex; align-items: center; gap: 9px; }
+/* Nabiz noktasi: her basarili yoklamada bir kez yanar. Panelin gercekten
+   canli oldugunu gostermenin en ucuz yolu — sayilar degismese bile. */
+.pulse {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--line-2); flex: none;
+}
+.pulse.beat { animation: beat 1.1s ease-out; }
+@keyframes beat {
+  0%   { background: var(--ok); box-shadow: 0 0 0 0 rgba(39,196,107,.45); }
+  100% { background: var(--line-2); box-shadow: 0 0 0 5px rgba(39,196,107,0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pulse.beat { animation: none; background: var(--ok); }
+}
 
 /* ================= metrikler ================= */
 .metrics {
@@ -157,6 +172,7 @@ main { padding: 18px; display: flex; flex-direction: column; gap: 14px; flex: 1;
 .badge.offline  { border-color: var(--line);          color: var(--fg-mute); }
 .badge.starting { border-color: rgba(226,163,54,.45); color: var(--warn); background: rgba(226,163,54,.10); }
 .badge.error    { border-color: rgba(229,72,77,.45);  color: var(--err);  background: rgba(229,72,77,.10); }
+.badge.warn     { border-color: rgba(226,163,54,.45); color: var(--warn); background: rgba(226,163,54,.10); }
 .pill {
   font-family: var(--mono); font-size: 12px;
   color: var(--fg-dim); background: var(--panel-2);
@@ -219,6 +235,9 @@ main { padding: 18px; display: flex; flex-direction: column; gap: 14px; flex: 1;
 .queue-track { height: 4px; background: var(--panel-2); border-radius: 2px; overflow: hidden; }
 .queue-bar { height: 100%; width: 0; background: var(--ok-dim); transition: width .4s ease; }
 .queue-pct { text-align: right; font-size: 11px; color: var(--fg-mute); margin-top: 5px; }
+/* Sira onayinin otomatik oldugunu soyler — kullanicinin panelin basinda
+   beklemesi gerekmedigini bilmesi urunun ana vaadidir. */
+.queue-note { font-size: 12px; color: var(--ok-dim); margin-top: 7px; }
 
 /* ================= akislar ================= */
 .stream, .pre {
@@ -354,3 +373,16 @@ footer {
   .banner { margin: 12px 14px 0; }
   .metric { padding: 10px 14px; }
 }
+
+/* ================= sagdan sola (Arapca) =================
+   Panel 14 dilde calisir; bunlardan biri (ar) sagdan sola yazilir.
+   Grid/flex akisi dir="rtl" ile kendiliginden dondugu icin yalnizca sabit
+   yon varsayimlari (text-align, inset kenarlik) duzeltilir. */
+[dir="rtl"] .queue-pct { text-align: left; }
+[dir="rtl"] .tab.active { box-shadow: inset -2px 0 0 var(--ok); }
+[dir="rtl"] .side-brand,
+[dir="rtl"] .steps,
+[dir="rtl"] .kv dt { text-align: right; }
+[dir="rtl"] .mono,
+[dir="rtl"] .pre,
+[dir="rtl"] .stream { direction: ltr; text-align: left; }
