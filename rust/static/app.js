@@ -241,12 +241,22 @@ function renderBot(b) {
   badge.textContent = t(meta.key);
   badge.className = "badge " + meta.cls;
 
+  // Cozumu bilinen hatalar icin bot bir kod yollar (online_mode, whitelist...).
+  // Kullaniciya ham kick metnini ("multiplayer.disconnect.unverified_username")
+  // gostermek hicbir ise yaramaz; ne yapmasi gerektigini soyleyen ceviri var.
+  const known = st.error_code ? "bot_err_" + st.error_code : null;
+
   // "Etkin" ile "sureci calisiyor" ayri seylerdir: bot yalnizca sunucu online
   // oldugunda yasar. Kullanici botu acip sunucu kapaliyken "offline" gorunce
   // bozuk sandi — artik hangi durumda oldugu yaziyor.
-  $("botDetail").textContent = st.error && st.state !== "unsupported_version"
-    ? t("bot_error_prefix") + ": " + st.error
-    : t(meta.desc);
+  if (known) {
+    $("botDetail").innerHTML = t(known);
+  } else {
+    $("botDetail").textContent =
+      st.error && st.state !== "unsupported_version"
+        ? t("bot_error_prefix") + ": " + st.error
+        : t(meta.desc);
+  }
   $("botStateText").textContent = st.state || "stopped";
   $("botRunning").textContent = b.running ? t("bot_run_on") : t("bot_run_off");
   $("botName").textContent = cfg.name || st.name || "—";
@@ -274,15 +284,18 @@ function renderBot(b) {
   fill("cfgVZ", cfg.vanish_z);
 
   const ebox = $("botErrorBox");
-  if (st.error && st.state !== "unsupported_version") {
+  if (known) {
+    ebox.hidden = false;
+    ebox.innerHTML = t(known);
+  } else if (st.error && st.state !== "unsupported_version") {
     ebox.hidden = false;
     ebox.textContent = t("bot_error_prefix") + ": " + st.error;
   } else {
     ebox.hidden = true;
   }
 
-  // Surum uyusmazligi paneli tepeden uyarir — bot asla baglanamayacagi icin
-  // sessiz kalmak yanlis olur.
+  // Bot asla baglanamayacak durumdaysa panel tepeden uyarir — kullanici Bot
+  // sekmesine bakmasa da sebebini gorsun.
   const banner = $("botVersionBanner");
   if (st.state === "unsupported_version") {
     banner.hidden = false;
@@ -290,6 +303,9 @@ function renderBot(b) {
       server: st.server_version || "?",
       max: st.max_supported_version || "?",
     });
+  } else if (known) {
+    banner.hidden = false;
+    banner.innerHTML = t(known);
   } else {
     banner.hidden = true;
   }

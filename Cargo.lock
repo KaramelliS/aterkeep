@@ -100,7 +100,7 @@ dependencies = [
 [[package]]
 name = "aterkeep-core"
 version = "1.0.0"
-source = "git+https://github.com/KaramelliS/aterkeep-core.git?rev=b57ff7f#b57ff7f9993de461086626bc3f94b356e1f549e7"
+source = "git+https://github.com/KaramelliS/aterkeep-core.git?rev=a4abb33#a4abb3367f4d04b947c9e66c68dc8185f9678d73"
 dependencies = [
  "aes-gcm",
  "async-stream",
