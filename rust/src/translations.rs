@@ -164,6 +164,12 @@ const EN: T = &[
     ("st_unknown", "status unavailable — check the log"),
     ("refresh_fail", "status refresh failed"),
     ("ui_error", "Interface error"),
+    ("st_session_expired", "Aternos session expired — the cookies need refreshing"),
+    (
+        "session_expired_warn",
+        "<b>Your Aternos session has expired.</b> Nothing can start or stop until it is renewed — this is not a server fault. Aternos cookies are short-lived; paste fresh ones to carry on.",
+    ),
+    ("session_expired_btn", "Refresh cookies"),
     // --- log / inspector ---
     ("log_title", "Live Log"),
     ("insp_title", "Last Request"),
@@ -376,6 +382,12 @@ const TR: T = &[
     ("st_unknown", "durum alınamadı — log'a bak"),
     ("refresh_fail", "durum yenilenemedi"),
     ("ui_error", "Arayüz hatası"),
+    ("st_session_expired", "Aternos oturumu düştü — çerezlerin yenilenmesi gerekiyor"),
+    (
+        "session_expired_warn",
+        "<b>Aternos oturumun düştü.</b> Yenilenene kadar hiçbir başlatma/durdurma çalışmaz — bu bir sunucu arızası değil. Aternos çerezleri kısa ömürlüdür; taze çerez yapıştırıp devam et.",
+    ),
+    ("session_expired_btn", "Çerezleri yenile"),
     ("log_title", "Canlı Log"),
     ("insp_title", "Son İstek"),
     (

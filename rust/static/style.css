@@ -386,3 +386,8 @@ footer {
 [dir="rtl"] .mono,
 [dir="rtl"] .pre,
 [dir="rtl"] .stream { direction: ltr; text-align: left; }
+
+/* Oturum uyarisi: metin + eylem yan yana. Kullaniciyi "ne oldu?"dan
+   "ne yapmaliyim?"a tek adimda goturur. */
+#sessionBanner { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
+#sessionBanner .btn { flex: none; }

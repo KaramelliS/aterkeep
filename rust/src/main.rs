@@ -317,6 +317,7 @@ async fn main() {
         queue: None,
         last_zombie_break: 0,
         last_extend: 0,
+        session_expired: false,
         ws_connected: false,
         players: 0,
         slots: 20,

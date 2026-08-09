@@ -307,6 +307,9 @@ async fn api_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoRes
         // Sunucunun kullandigi RAM (MB). Hermes akisi besler; baglanti yoksa 0.
         "heap": s.heap,
         "queue": s.queue,
+        // Cerezler gecersizse panel bunu "sunucu kapali" diye degil, ne
+        // yapilmasi gerektigini soyleyerek gosterir (bkz. app.js).
+        "session_expired": s.session_expired,
     }))
 }
 
