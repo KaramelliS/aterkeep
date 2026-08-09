@@ -48,7 +48,10 @@ function writeStatus(patch) {
   try {
     let cur = {};
     try { cur = JSON.parse(fs.readFileSync(STATUS_PATH, 'utf8')); } catch (e) {}
-    const next = Object.assign({ ts: Date.now() }, cur, patch);
+    // ts EN SONA yazilir: onceden {ts} varsayilan olarak basta duruyordu ve
+    // dosyadan okunan eski `cur.ts` onu her seferinde eziyordu — durum yillarca
+    // "ilk yazim" zamanini gostermeye devam ederdi.
+    const next = Object.assign({}, cur, patch, { ts: Date.now() });
     fs.writeFileSync(STATUS_PATH, JSON.stringify(next, null, 2));
   } catch (e) {}
 }
@@ -66,7 +69,12 @@ const VANISH_Z = parseFloat(cfg.vanish_z != null ? cfg.vanish_z : (process.env.A
 
 const RETRY_MS = parseInt(process.env.ATERKEEP_BOT_RETRY || '8000', 10);
 const DEAD_RETRY_MS = parseInt(process.env.ATERKEEP_BOT_DEAD_RETRY || '20000', 10);
-const PING_TIMEOUT_MS = parseInt(process.env.ATERKEEP_BOT_PINGTO || '8000', 10);
+// Aternos'un ucretsiz proxy'si ILK ping'e gec cevap veriyor: olculen sure
+// ~12.7 saniye (sunucu tamamen saglikliyken, 1.21.11, 0/20 oyuncu). Eski 8
+// saniyelik sinir bu yuzden HER ZAMAN dolup "sunucu cevap vermiyor" diye
+// yorumlanmasina yol aciyordu: bot acik bir sunucuya sonsuza kadar hic
+// baglanmayi denemeden bekliyordu. Sinir olculen surenin iki katina cikarildi.
+const PING_TIMEOUT_MS = parseInt(process.env.ATERKEEP_BOT_PINGTO || '25000', 10);
 
 const NAMES = [
   'Alex', 'Steve', 'Efe', 'Mert', 'Deniz', 'Kaan', 'Arda', 'Emir',
@@ -107,10 +115,21 @@ function scheduleDead() {
 }
 
 function pingServer() {
+  const t0 = Date.now();
   return Promise.race([
     mcPing({ host: HOST, port: PORT }),
     new Promise((_, reject) => setTimeout(() => reject(new Error('ping-timeout')), PING_TIMEOUT_MS)),
-  ]).catch(() => null);
+  ])
+    .then((info) => {
+      // Sureyi logla: ping sinirinin dogru olup olmadigini bir daha tahmin
+      // etmek zorunda kalmayalim.
+      log(`ping ${Date.now() - t0}ms — ${info && info.version ? info.version.name : '?'}`);
+      return info;
+    })
+    .catch((e) => {
+      log(`ping basarisiz (${Date.now() - t0}ms): ${e && e.message ? e.message : e}`);
+      return null;
+    });
 }
 
 function extractVersion(info) {
@@ -226,12 +245,30 @@ function spawnBot(info) {
     setTimeout(() => { try { bot.chat('/gamemode spectator'); } catch (e) {} }, 600);
     setTimeout(() => { try { bot.chat(`/tp ${VANISH_X} ${VANISH_Y} ${VANISH_Z}`); } catch (e) {} }, 1400);
     setTimeout(() => { VANISHED = true; log('vanish aktif — gorunmez modda AFK'); }, 3000);
-    writeStatus({ connected: true, state: 'online', name: currentName, vanished: false, error: null });
+    writeStatus({ connected: true, state: 'online', name: currentName, vanished: false, error: null, error_code: null });
     setTimeout(() => writeStatus({ vanished: true }), 3000);
     startActivity();
   });
 
-  bot.on('kicked', (reason) => { log(`KICK: ${reason}`); writeStatus({ connected: false, state: 'kicked', error: String(reason) }); scheduleReconnect(); });
+  bot.on('kicked', (reason) => {
+    const raw = typeof reason === 'string' ? reason : JSON.stringify(reason);
+    log(`KICK: ${raw}`);
+    // online-mode=true olan bir sunucu, offline modda baglanan botu
+    // "unverified_username" ile atar. Bu, ayar degismeden ASLA duzelmez;
+    // ham cevirii anahtarini gostermek yerine panele ne yapilmasi gerektigini
+    // soyleyen bir kod yaz (panel bunu kullanicinin dilinde gosterir).
+    if (raw.includes('unverified_username') || raw.includes('multiplayer.disconnect.not_whitelisted')) {
+      const code = raw.includes('unverified_username') ? 'online_mode' : 'whitelist';
+      writeStatus({ connected: false, state: 'kicked', error_code: code, error: raw });
+      // 8 saniyede bir bosuna baglanip sunucuyu mesgul etme; ayar degisirse
+      // bir dakika icinde kendiliginden girsin.
+      cleanup();
+      setTimeout(connect, 60000);
+      return;
+    }
+    writeStatus({ connected: false, state: 'kicked', error_code: null, error: raw });
+    scheduleReconnect();
+  });
   bot.on('error', (err) => { log(`hata: ${err.message || err}`); writeStatus({ connected: false, state: 'error', error: err.message || String(err) }); scheduleReconnect(); });
   bot.on('end', () => { log('baglanti koptu'); writeStatus({ connected: false, state: 'disconnected' }); scheduleReconnect(); });
 

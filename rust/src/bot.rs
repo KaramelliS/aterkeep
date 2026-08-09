@@ -160,16 +160,38 @@ impl BotManager {
         Ok(())
     }
 
+    /// bot/bot.log'u ekleme modunda acar ve stdout+stderr icin iki tutamac doner.
+    /// Dosya 2 MB'i gecerse sifirlanir — gunlerce calisan bir daemon'da log
+    /// sinirsiz buyumemeli.
+    fn open_bot_log(root: &Path) -> Option<(std::process::Stdio, std::process::Stdio)> {
+        let path = root.join("bot").join("bot.log");
+        if std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0) > 2 * 1024 * 1024 {
+            let _ = std::fs::write(&path, b"");
+        }
+        let f = std::fs::OpenOptions::new()
+            .create(true)
+            .append(true)
+            .open(&path)
+            .ok()?;
+        let f2 = f.try_clone().ok()?;
+        Some((std::process::Stdio::from(f), std::process::Stdio::from(f2)))
+    }
+
     fn spawn(&self) -> Result<Child, String> {
         let root_str = self.repo_root.to_string_lossy().to_string();
         let mut cmd = tokio::process::Command::new("node");
         cmd.arg("bot/index.js")
             .current_dir(&self.repo_root)
             .env("ATERKEEP_BOT_DIR", &root_str);
-        // Stdout/stderr inherit edilmez (daemon log kirletmemesi icin) — pipe'la
-        // ki surec aninda cokse bile tankanmaz. (Child drop olunca otomatik kapanir.)
-        cmd.stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null());
+        // Bot ciktisi bir dosyaya yazilir. Onceden /dev/null'a gidiyordu: bot
+        // sunucudan atildiginda ya da baglanamadiginda geriye hicbir iz kalmiyor,
+        // "bot girmiyor" sikayetinin sebebini gormek imkansiz oluyordu. Daemon'in
+        // kendi loguna karismasin diye ayri dosya.
+        let (out, err) = match Self::open_bot_log(&self.repo_root) {
+            Some(pair) => pair,
+            None => (std::process::Stdio::null(), std::process::Stdio::null()),
+        };
+        cmd.stdout(out).stderr(err);
         // kill_on_drop: BotManager drop olursa child da olmesi icin sinyal
         // (daemon cikinca bot da ciksin). Windows'ta drop -> kill degildir ama
         // stop() acik kill cagirir.
@@ -270,6 +292,13 @@ impl BotManager {
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string())
         };
+        // Bot, cozumu bilinen hatalari makine tarafindan okunabilir bir kodla
+        // bildirir (orn. "online_mode"). Panel bunu kullanicinin dilinde ve ne
+        // yapmasi gerektigini soyleyerek gosterir; ham kick metni degil.
+        let error_code = file_status
+            .get("error_code")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string());
 
         json!({
             "enabled": cfg.enabled,
@@ -284,6 +313,7 @@ impl BotManager {
             "server_version": server_version,
             "max_supported_version": max_supported_version,
             "error": error,
+            "error_code": if running { error_code } else { None },
         })
     }
 }

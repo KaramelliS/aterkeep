@@ -309,6 +309,15 @@ const EN: T = &[
         "<b>Bot version mismatch:</b> the server runs {server} but the bot supports at most <b>{max}</b>. Switch to <b>Software → Vanilla {max}</b> in the Aternos panel and the bot connects by itself.",
     ),
     ("bot_error_prefix", "Bot error"),
+    // Cozumu bilinen hatalar: ham kick metni yerine ne yapilacagini soyler.
+    (
+        "bot_err_online_mode",
+        "<b>The server has online-mode enabled</b>, so the bot is rejected as an unverified username. Open the <b>Settings</b> tab and set <code>online-mode</code> to <code>false</code> — the bot joins by itself within a minute.",
+    ),
+    (
+        "bot_err_whitelist",
+        "<b>The server has a whitelist</b> and the bot is not on it. Add the bot's name to the whitelist, or turn the whitelist off in the Settings tab.",
+    ),
     ("bot_enabled", "bot enabled"),
     ("bot_disabled", "bot disabled"),
     ("bot_started", "bot started"),
@@ -498,6 +507,14 @@ const TR: T = &[
         "<b>Bot sürüm uyuşmazlığı:</b> sunucu {server} çalıştırıyor ama bot en fazla <b>{max}</b> destekliyor. Aternos panelinde <b>Yazılım → Vanilla {max}</b> sürümüne geç, bot kendi bağlanır.",
     ),
     ("bot_error_prefix", "Bot hatası"),
+    (
+        "bot_err_online_mode",
+        "<b>Sunucuda online-mode açık</b>; bot doğrulanmamış kullanıcı adı diye atılıyor. <b>Ayarlar</b> sekmesini aç ve <code>online-mode</code> değerini <code>false</code> yap — bot bir dakika içinde kendi girer.",
+    ),
+    (
+        "bot_err_whitelist",
+        "<b>Sunucuda whitelist açık</b> ve bot listede değil. Botun adını whitelist'e ekle ya da Ayarlar sekmesinden whitelist'i kapat.",
+    ),
     ("bot_enabled", "bot etkin"),
     ("bot_disabled", "bot devre dışı"),
     ("bot_started", "bot başlatıldı"),
