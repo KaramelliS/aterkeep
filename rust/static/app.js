@@ -130,6 +130,9 @@ const states = {
   pending:  { label: "PENDING",  cls: "starting", key: "st_queue" },
   crashed:  { label: "CRASHED",  cls: "offline",  key: "st_offline" },
   offline:  { label: "OFFLINE",  cls: "offline",  key: "st_offline" },
+  // Dusmus oturum bir sunucu durumu DEGIL, bir hesap durumudur; "kapali" diye
+  // gostermek kullaniciyi sunucusunda sorun ariyormus gibi yanlis yone iter.
+  session_expired: { label: "SESSION", cls: "error", key: "st_session_expired" },
   boot:     { label: "BOOT",     cls: "starting", key: "st_starting" },
   unknown:  { label: "UNKNOWN",  cls: "",         key: "st_unknown" },
 };
@@ -172,6 +175,12 @@ function renderStatus(s) {
   $("metricRam").textContent = s.heap ? `${s.heap} MB` : "—";
   $("metricLink").textContent = s.ws_connected ? t("link_live") : t("link_poll");
   $("metricLink").className = "metric-value " + (s.ws_connected ? "ok" : "dim");
+
+  // Cerezler dustugunde hicbir aksiyon calismaz; kullanicinin bunu boslugu
+  // yorumlayarak degil, yazili olarak gormesi gerekiyor.
+  const sb = $("sessionBanner");
+  sb.hidden = !s.session_expired;
+  if (s.session_expired) $("sessionBannerText").innerHTML = t("session_expired_warn");
 
   if (s.last_request) renderInspector(s.last_request);
   // Yalnizca aksiyon butonlari kilitlenir; form/kaydet butonlari serbest kalir.
@@ -658,6 +667,10 @@ $("logoutBtn").addEventListener("click", async () => {
   await fetch("/api/logout", { method: "POST" });
   location.reload();
 });
+
+// Bannerdaki dugme ile kenar cubugundaki "oturumu yenile" ayni isi yapar:
+// mevcut oturumu silip kurulum sihirbazina donerler.
+$("sessionRenewBtn").addEventListener("click", () => $("resetSessionBtn").click());
 
 $("resetSessionBtn").addEventListener("click", async () => {
   if (!confirm(t("reset_confirm"))) return;
