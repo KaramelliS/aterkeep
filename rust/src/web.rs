@@ -37,6 +37,9 @@ pub fn router(ctx: Arc<AppCtx>) -> Router {
     let c12 = ctx.clone();
     let c13 = ctx.clone();
     let c14 = ctx.clone();
+    let c15 = ctx.clone();
+    let c16 = ctx.clone();
+    let c17 = ctx.clone();
     Router::new()
         .route("/", get(index))
         .route("/static/style.css", get(style_css))
@@ -53,10 +56,22 @@ pub fn router(ctx: Arc<AppCtx>) -> Router {
         .route("/api/i18n/{lang}", get(move |p| api_i18n(c9, p)))
         .route("/api/i18n", get(api_i18n_list))
         .route("/api/needs-setup", get(api_needs_setup))
+        .route("/api/boot", get(api_boot))
         .route("/api/setup", post(api_setup))
+        .route("/api/setup/reset", post(api_setup_reset))
         .route("/api/bot", get(move |s| api_bot_status(c10, s)))
-        .route("/api/bot/toggle", get(move |q| api_bot_toggle(c11, q)))
-        .route("/api/bot/config", post(move |b| api_bot_config(c12, b)))
+        // Panel bot durumunu /api/bot/status'tan, config+durum birlesimini
+        // GET /api/bot/config'ten okur; toggle'i JSON POST ile yollar. GET ?on=
+        // formu da korunuyor (eski panel/otomasyon uyumlulugu).
+        .route("/api/bot/status", get(move |s| api_bot_status_wrapped(c15, s)))
+        .route(
+            "/api/bot/toggle",
+            get(move |q| api_bot_toggle(c11, q)).post(move |b| api_bot_toggle_post(c16, b)),
+        )
+        .route(
+            "/api/bot/config",
+            get(move |s| api_bot_config_get(c17, s)).post(move |b| api_bot_config(c12, b)),
+        )
         .route("/api/cancel", get(move |s| api_cancel(c13, s)))
         .route("/api/extend", get(move |s| api_extend(c14, s)))
 }
@@ -71,6 +86,9 @@ pub async fn run_setup_mode() {
         .route("/static/app.js", get(app_js))
         .route("/static/logo.svg", get(logo_svg))
         .route("/api/needs-setup", get(api_needs_setup))
+        // Panel acilirken /api/boot'u sorgular — setup modunda da cevap vermeli,
+        // yoksa 404 alip setup overlay'ini hic gostermez.
+        .route("/api/boot", get(api_boot))
         .route("/api/setup", post(api_setup));
     let listener = tokio::net::TcpListener::bind("127.0.0.1:4041")
         .await
@@ -396,10 +414,57 @@ async fn api_bot_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl Int
     Json(ctx.bot.status().await)
 }
 
+/// GET /api/bot/status -> { status: {...} }
+/// Panel durumu bu sargi altinda bekler (`b.status`), duz nesne degil.
+async fn api_bot_status_wrapped(
+    ctx: Arc<AppCtx>,
+    _: axum::extract::Request,
+) -> impl IntoResponse {
+    Json(json!({ "status": ctx.bot.status().await }))
+}
+
+/// GET /api/bot/config -> { config, status, running, node_available }
+/// Panelin bot sekmesini tek istekte doldurdugu birlesik uc.
+async fn api_bot_config_get(
+    ctx: Arc<AppCtx>,
+    _: axum::extract::Request,
+) -> impl IntoResponse {
+    let cfg = ctx.bot.config().await;
+    Json(json!({
+        "config": {
+            "enabled": cfg.enabled,
+            "name": cfg.name,
+            "host": cfg.host,
+            "port": cfg.port,
+            "vanish_x": cfg.vanish_x,
+            "vanish_y": cfg.vanish_y,
+            "vanish_z": cfg.vanish_z,
+        },
+        "status": ctx.bot.status().await,
+        "running": ctx.bot.is_running().await,
+        "node_available": crate::bot::node_available(),
+    }))
+}
+
+/// POST /api/bot/toggle  body: { "enabled": bool }
+/// GET ?on=true|false ile ayni isi yapar; panel JSON POST kullanir.
+async fn api_bot_toggle_post(ctx: Arc<AppCtx>, Json(body): Json<Value>) -> impl IntoResponse {
+    let on = body
+        .get("enabled")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(false);
+    bot_set_enabled(ctx, on).await
+}
+
 /// GET /api/bot/toggle?on=true|false
 /// enabled'i kaydeder; sunucu ONLINE ise botu baslatir, degilse durdurur.
 async fn api_bot_toggle(ctx: Arc<AppCtx>, q: axum::extract::Query<Value>) -> impl IntoResponse {
     let on = q.get("on").and_then(|v| v.as_str()) == Some("true");
+    bot_set_enabled(ctx, on).await
+}
+
+/// Toggle'in ortak mantigi — GET (?on=) ve POST ({enabled}) ayni yoldan gecer.
+async fn bot_set_enabled(ctx: Arc<AppCtx>, on: bool) -> Json<Value> {
     if let Err(e) = ctx.bot.set_enabled(on).await {
         return Json(json!({ "ok": false, "error": e }));
     }
@@ -465,7 +530,37 @@ async fn api_bot_config(ctx: Arc<AppCtx>, Json(body): Json<Value>) -> impl IntoR
 
 #[cfg(test)]
 mod tests {
-    use super::parse_cookies;
+    use super::{parse_cookies, split_token};
+
+    #[test]
+    fn splits_combined_token_and_sec() {
+        // panelin tarif ettigi AJAX_TOKEN|generateAjaxToken() formati
+        let (t, s) = split_token("LLK12U2TNWWp6KoZj7gn|zii7mb2mqn000000:gpnl9xr52o000000");
+        assert_eq!(t, "LLK12U2TNWWp6KoZj7gn");
+        assert_eq!(s, "zii7mb2mqn000000:gpnl9xr52o000000");
+    }
+
+    #[test]
+    fn token_without_separator_leaves_sec_empty() {
+        let (t, s) = split_token("  PLAINTOKEN  ");
+        assert_eq!(t, "PLAINTOKEN");
+        assert_eq!(s, "");
+    }
+
+    #[test]
+    fn split_token_trims_around_separator() {
+        let (t, s) = split_token(" abc | def ");
+        assert_eq!(t, "abc");
+        assert_eq!(s, "def");
+    }
+
+    #[test]
+    fn split_token_keeps_extra_separators_in_sec() {
+        // sec kisminda '|' varsa bolunmemeli — sadece ilk ayirici sayilir
+        let (t, s) = split_token("tok|a|b");
+        assert_eq!(t, "tok");
+        assert_eq!(s, "a|b");
+    }
 
     #[test]
     fn parses_standard_cookie_header() {
@@ -512,6 +607,9 @@ mod tests {
 
 // ---------- setup-mode backend ----------
 
+/// Sifreli oturum dosyasi — main.rs'teki SESSION_FILE ile ayni isim olmali.
+const SESSION_FILE: &str = "session.enc";
+
 /// main.rs'teki `load_or_create_key` ile AYNI mantik.
 /// Burada tekrar yaziyoruz cunku o fonksiyon private ve main.rs'e dokunamayiz.
 fn key_file() -> Result<[u8; 32], String> {
@@ -537,6 +635,18 @@ fn key_file() -> Result<[u8; 32], String> {
     let b64 = base64::engine::general_purpose::STANDARD.encode(key);
     std::fs::write(&path, b64).map_err(|e| e.to_string())?;
     Ok(key)
+}
+
+/// Kurulum ekranindaki tek token alanini (token, sec) ikilisine ayirir.
+///
+/// Panel kullaniciya `window.AJAX_TOKEN + "|" + window.generateAjaxToken()`
+/// ciktisini yapistirmasini soyler; bu iki degeri '|' ile ayrilmis tek string
+/// olarak getirir. Ayirici yoksa tamami token'dir, sec bos kalir.
+fn split_token(raw: &str) -> (String, String) {
+    match raw.split_once('|') {
+        Some((t, s)) => (t.trim().to_string(), s.trim().to_string()),
+        None => (raw.trim().to_string(), String::new()),
+    }
 }
 
 fn parse_cookies(raw: &str) -> Vec<Cookie> {
@@ -570,19 +680,64 @@ fn self_restart() {
 /// session.enc var mi yok mu? yoksa panel setup modunda acilir.
 async fn api_needs_setup() -> impl IntoResponse {
     let needed = match key_file() {
-        Ok(key) => Session::load_encrypted(&PathBuf::from("session.enc"), &key).is_err(),
+        Ok(key) => Session::load_encrypted(&PathBuf::from(SESSION_FILE), &key).is_err(),
         Err(_) => true,
     };
     Json(json!({ "needs_setup": needed }))
 }
 
+/// GET /api/boot -> { setup_mode: bool }
+/// Panel acilir acilmaz bunu sorar: true ise kurulum overlay'ini gosterir ve
+/// sekmeleri kilitler. `needs_setup` ile ayni kaynaktan beslenir.
+async fn api_boot() -> impl IntoResponse {
+    let setup_mode = match key_file() {
+        Ok(key) => Session::load_encrypted(&PathBuf::from(SESSION_FILE), &key).is_err(),
+        Err(_) => true,
+    };
+    Json(json!({ "setup_mode": setup_mode }))
+}
+
+/// POST /api/setup/reset -> session.enc'i siler ve process'i yeniden baslatir.
+/// Aternos oturumu ~30 gunde bir doldugu icin bu, panelden tek tikla yeniden
+/// kurulum akisina donmeyi saglar. Anahtar dosyasi (aterkeep.key) KORUNUR —
+/// silinirse kullanicinin elindeki baska sifreli veriler de cozulemez hale gelir.
+async fn api_setup_reset() -> impl IntoResponse {
+    let path = PathBuf::from(SESSION_FILE);
+    if path.exists() {
+        if let Err(e) = std::fs::remove_file(&path) {
+            return Json(json!({ "ok": false, "error": format!("session silinemedi: {e}") }));
+        }
+    }
+    tokio::spawn(async {
+        tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+        self_restart();
+    });
+    Json(json!({ "ok": true }))
+}
+
 /// Cookie'leri al, key uret/yukle, session.enc yaz, adres tespit et, sonra self-restart.
 async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
-    let token = body.get("token").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let sec = body.get("sec").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let raw_token = body.get("token").and_then(|v| v.as_str()).unwrap_or("").trim().to_string();
     let server_id = body.get("server_id").and_then(|v| v.as_str()).unwrap_or("").to_string();
-    let cookies_raw = body.get("cookies").and_then(|v| v.as_str()).unwrap_or("").to_string();
+    // Cerez alani iki isimle de gelebilir: "cookies" (form) veya "cookie" (tek
+    // textarea'ya yapistirilan ham Cookie header'i). Ikisini de kabul et.
+    let cookies_raw = body
+        .get("cookies")
+        .or_else(|| body.get("cookie"))
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
     let cookies = parse_cookies(&cookies_raw);
+    // Token "AJAX_TOKEN|SEC" birlesik formatinda gelebilir (panelin tarif ettigi
+    // window.AJAX_TOKEN + "|" + window.generateAjaxToken() ciktisi). Bolup ayir;
+    // ayri "sec" alani gonderildiyse o oncelikli.
+    let (token, split_sec) = split_token(&raw_token);
+    let sec = body
+        .get("sec")
+        .and_then(|v| v.as_str())
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .unwrap_or(split_sec);
     if token.is_empty() && cookies.is_empty() {
         return Json(json!({ "ok": false, "error": "token veya cookie gerekli" }));
     }
@@ -613,7 +768,7 @@ async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
             sess.server_addr = Some(addr);
         }
     }
-    if let Err(e) = sess.save_encrypted(&PathBuf::from("session.enc"), &key) {
+    if let Err(e) = sess.save_encrypted(&PathBuf::from(SESSION_FILE), &key) {
         return Json(json!({ "ok": false, "error": format!("kayit: {e}") }));
     }
     // 800ms sonra self-restart (response gitsin diye)

@@ -275,6 +275,25 @@ impl BotManager {
     }
 }
 
+/// `node` calistirilabilir durumda mi? Bot Node.js gerektirir (mineflayer);
+/// yoksa spawn sessizce basarisiz olur ve panelde sebebi gorunmez. Panel bu
+/// bilgiyi gosterip kullaniciyi "npm install"e yonlendirir.
+///
+/// Sonuc process omru boyunca cache'lenir — panel bu ucu 4 saniyede bir
+/// cagiriyor, her seferinde surec spawn etmek israf olur.
+pub fn node_available() -> bool {
+    static CACHE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
+    *CACHE.get_or_init(|| {
+        std::process::Command::new("node")
+            .arg("--version")
+            .stdout(std::process::Stdio::null())
+            .stderr(std::process::Stdio::null())
+            .status()
+            .map(|s| s.success())
+            .unwrap_or(false)
+    })
+}
+
 /// Kolaylik: AppCtx ve keepalive her yerde Arc<BotManager> tasiyor.
 pub type SharedBot = Arc<BotManager>;
 

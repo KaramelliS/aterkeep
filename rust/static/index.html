@@ -12,26 +12,6 @@
 <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
-<div class="setup-overlay" id="setupOverlay" hidden>
-  <div class="setup-card">
-    <div class="setup-logo">aterkeep</div>
-    <div class="setup-title" data-i18n="setup_title">aterkeep kurulumu</div>
-    <div class="setup-sub" data-i18n="setup_sub">Aternos çerezlerini gir, gerisini biz hallederiz.</div>
-    <div class="setup-form">
-      <label class="setup-label" data-i18n="setup_token">AJAX TOKEN (window.AJAX_TOKEN)</label>
-      <input type="text" id="setupToken" class="setup-input" placeholder="T:..."/>
-      <label class="setup-label" data-i18n="setup_sec">SEC</label>
-      <input type="text" id="setupSec" class="setup-input" placeholder="sec değeri (opsiyonel)"/>
-      <label class="setup-label" data-i18n="setup_server_id">Server ID (ATERNOS_SERVER)</label>
-      <input type="text" id="setupServerId" class="setup-input" placeholder="YQaVd6Tb..."/>
-      <label class="setup-label" data-i18n="setup_cookies">Çerezler (Cookie header — tümünü yapıştır)</label>
-      <textarea id="setupCookies" class="setup-input setup-textarea" rows="3" placeholder="ATERNOS_SESSION=...; ATERNOS_SEC_...=...; ATERNOS_SERVER=..."></textarea>
-      <button type="button" class="setup-btn" id="setupConnect" data-i18n="setup_connect">Bağlan</button>
-      <div class="setup-error" id="setupError" hidden></div>
-    </div>
-    <div class="setup-hint" data-i18n="setup_hint">Çerezleri al: aternos.org'da F12 → Application/Network → Cookie. Hepsi buraya yapıştır.</div>
-  </div>
-</div>
 <header>
   <div class="brand">
     <img class="logo-img" src="/static/logo.svg" alt="aterkeep"/>
@@ -62,26 +42,9 @@
   <div class="setup-card">
     <div class="setup-logo">aterkeep</div>
     <h2>Hesap Kurulumu</h2>
-    <p class="setup-intro">Sunucunuza bağlanmak için Aternos oturum çerezleri gerekli. İki yol:</p>
-    <div class="setup-tabs">
-      <button class="setup-tab active" id="modeAuto">🌐 Browser ile otomatik</button>
-      <button class="setup-tab" id="modeManual">✋ Elle kopyala</button>
-    </div>
+    <p class="setup-intro">Sunucunuza bağlanmak için Aternos oturum çerezleri gerekli. Aşağıdaki adımları izleyin — bir kez yapılır, oturum ~30 gün geçerlidir.</p>
 
-    <!-- OTOMATIK MOD -->
-    <div class="setup-pane" id="paneAuto">
-      <p class="setup-intro"><b>Başlat</b>'a bas → bir Chromium penceresi açılır. O pencerede:</p>
-      <ol class="setup-steps">
-        <li>Aternos'a <b>giriş yap</b> (kullanıcı adı + şifre)</li>
-        <li><b>Sunucu paneline</b> gir (sunucunu seç)</li>
-        <li>Geri kalanını otomatik yapar — çerezler + token çekilir, pencere kapanır</li>
-      </ol>
-      <div class="setup-status" id="autoStatus"></div>
-      <button class="btn btn-start setup-btn" id="autoStart">🌐 Browser Aç</button>
-    </div>
-
-    <!-- MANUAL MOD -->
-    <div class="setup-pane" id="paneManual" hidden>
+    <div class="setup-pane" id="paneManual">
       <ol class="setup-steps">
         <li><b>aternos.org</b>'a gir, giriş yap, sunucu panelini aç</li>
         <li><b>F12</b> → <b>Network (Ağ)</b> → <b>F5</b> ile yenile</li>
@@ -99,7 +62,8 @@
       <details class="setup-help">
         <summary>Cookie nasıl kopyalanır? (adım adım)</summary>
         <div class="setup-help-body">
-          <p><b>Önemli:</b> <code>ATERNOS_SESSION</code> çerezi <b>HttpOnly</b> — hiçbir JavaScript komutu onu göremez. Tek yol yukarıdaki gibi Network'ten kopyalamak, ya da <b>browser ile otomatik</b> modu kullanmak (önerilen).</p>
+          <p><b>Önemli:</b> <code>ATERNOS_SESSION</code> çerezi <b>HttpOnly</b> — hiçbir JavaScript komutu (<code>document.cookie</code> dahil) onu göremez. Bu yüzden çerezi yukarıdaki gibi <b>Network</b> sekmesindeki isteğin <code>cookie:</code> başlığından kopyalamanız gerekir. Alternatif olarak <b>Application → Cookies → https://aternos.org</b> altından da okuyabilirsiniz.</p>
+          <p><b>Server ID gerekmez:</b> yapıştırdığınız çerezlerin içindeki <code>ATERNOS_SERVER</code> değerinden sunucunuz otomatik tespit edilir.</p>
         </div>
       </details>
     </div>

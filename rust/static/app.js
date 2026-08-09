@@ -3,50 +3,8 @@ const logEl = $("log");
 let I18N = {};
 
 // === ONBOARDING / SETUP ===
-async function checkNeedsSetup() {
-  try {
-    const r = await fetch("/api/needs-setup");
-    const j = await r.json();
-    if (j.needs_setup) {
-      $("setupOverlay").hidden = false;
-    }
-  } catch (e) { /* backend henüz yoksa sessiz geç */ }
-}
-
-$("setupConnect").addEventListener("click", async () => {
-  const btn = $("setupConnect");
-  const errEl = $("setupError");
-  errEl.hidden = true;
-  btn.disabled = true;
-  const oldText = btn.textContent;
-  btn.textContent = "…";
-  try {
-    const body = {
-      token: $("setupToken").value.trim(),
-      sec: $("setupSec").value.trim(),
-      server_id: $("setupServerId").value.trim(),
-      cookies: $("setupCookies").value.trim(),
-    };
-    const r = await fetch("/api/setup", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-    const j = await r.json();
-    if (j.ok) {
-      location.reload();
-    } else {
-      errEl.textContent = j.error || "Bağlantı başarısız";
-      errEl.hidden = false;
-    }
-  } catch (e) {
-    errEl.textContent = e.message;
-    errEl.hidden = false;
-  } finally {
-    btn.disabled = false;
-    btn.textContent = oldText;
-  }
-});
+// Kurulum overlay'i tek yerden yonetilir: checkBoot() (asagida) /api/boot'u
+// sorgular ve gerekirse overlay'i acar. Gonderim mantigi setupSubmit'te.
 
 async function loadI18n() {
   let lang = localStorage.getItem("aterkeep_lang") || "tr";
@@ -442,48 +400,6 @@ $("resetSessionBtn").addEventListener("click", async () => {
   if (!confirm("Mevcut oturum silinecek ve setup ekranına dönülecek. Devam?")) return;
   await fetch("/api/setup/reset", { method: "POST" });
   location.reload();
-});
-
-// setup mod sekmeleri
-$("modeAuto").addEventListener("click", () => {
-  $("modeAuto").classList.add("active"); $("modeManual").classList.remove("active");
-  $("paneAuto").hidden = false; $("paneManual").hidden = true;
-});
-$("modeManual").addEventListener("click", () => {
-  $("modeManual").classList.add("active"); $("modeAuto").classList.remove("active");
-  $("paneManual").hidden = false; $("paneAuto").hidden = true;
-});
-
-// OTOMATIK: browser ac, cookie cek
-$("autoStart").addEventListener("click", async () => {
-  const st = $("autoStatus");
-  const btn = $("autoStart");
-  st.innerHTML = "🌐 Browser açılıyor... Pencerede aternos'a <b>giriş yapıp sunucu paneline gir</b>. İşlem bitince pencere otomatik kapanır."; st.className = "setup-status";
-  btn.disabled = true; btn.textContent = "⏳ Bekleniyor (login ol)...";
-  try {
-    const r = await fetch("/api/setup/grab", { method: "POST" });
-    const j = await r.json();
-    if (j.ok) {
-      st.textContent = "✓ Çerezler çekildi! Panel yenileniyor..."; st.className = "setup-status ok";
-      // boot polling ile setup_mode false dogrula
-      let tries = 0;
-      const poll = async () => {
-        tries++;
-        try {
-          const b = await (await fetch("/api/boot")).json();
-          if (!b.setup_mode) {
-            $("setupOverlay").hidden = true;
-            setTimeout(() => location.reload(), 400);
-          } else if (tries < 8) { setTimeout(poll, 400); }
-          else { location.reload(); }
-        } catch (e) { if (tries < 8) setTimeout(poll, 400); }
-      };
-      setTimeout(poll, 600);
-    } else {
-      st.textContent = "✗ " + (j.error || "hata"); st.className = "setup-status err";
-    }
-  } catch (e) { st.textContent = "✗ ağ hatası — browser kapanmamış olabilir"; st.className = "setup-status err"; }
-  btn.disabled = false; btn.textContent = "🌐 Browser Aç";
 });
 
 $("setupSubmit").addEventListener("click", async () => {
