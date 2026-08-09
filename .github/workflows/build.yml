@@ -78,6 +78,21 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: dist/${{ matrix.asset }}
+      # Binary tek basina yetmiyor: anti-idle bot bot/index.js'e, acilista
+      # baslatma scripts/'e ihtiyac duyar. Bunlar olmadan alici depoyu klonlamak
+      # zorunda kalir — satilan bir urunde bu kabul edilemez. Tek arsiv,
+      # yalnizca bir kez (matrix'in bir kolundan) yuklenir.
+      - name: Package companion files
+        if: matrix.os == 'ubuntu-latest'
+        shell: bash
+        run: |
+          zip -r dist/aterkeep-extras.zip bot scripts docs README.md LICENSE \
+            -x 'bot/node_modules/*' 'bot/*.log'
+      - name: Upload companion archive
+        if: matrix.os == 'ubuntu-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/aterkeep-extras.zip
     # NOTE: Android/Termux (aarch64-linux-android) binary users build locally:
     #   pkg install rust && cargo build --release --target aarch64-linux-android
     # See docs/TERMUX.md. CI cross-compile skipped (NDK complexity).
