@@ -1,0 +1,112 @@
+﻿# aterkeep
+
+<p align="center">
+  <img src="rust/static/logo.svg" alt="aterkeep logo" width="280"/>
+</p>
+
+**Aternos-servermanager & 24/7-dashboard.** Eén Rust-binary (~1.7 MB) houdt je gratis Aternos-Minecraftserver dag en nacht online en geeft je een modern webpaneel — geen browserautomatisering, puur HTTP.
+
+<p align="center">
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.ar.md">العربية</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a>
+</p>
+
+## Functies
+
+- **Keep-alive-loop** — controleert elke 90 s en herstart de server automatisch (uitschakelbaar)
+- **Webdashboard** — live status, start/stop/herstart, auto-startschakelaar
+- **Serverconsole** — live serverlog in je browser
+- **Instellingeneditor** — lees/wijzig `server.properties` vanuit het paneel
+- **Spelerlijst** — wie is online
+- **Request-inspector** — elke HTTP-call met JSON-antwoord (educatief)
+- **14 talen** — UI wisselbaar in de header
+- **Versleutelde sessie** — cookies in AES-256-GCM, de sleutel verlaat je pc nooit
+
+## Vereisten
+
+- Windows 10/11 (gebruikt ingebouwde `curl.exe`)
+- Rust-toolchain (alleen om te compileren)
+
+## Installatie
+
+```powershell
+cd rust
+cargo build --release
+# binary: target/release/aterkeep.exe
+```
+
+## Sessie exporteren (eenmalig)
+
+1. Open **https://aternos.org** en log in.
+2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → deel na `:` → `sec`
+3. `F12` → **Application → Cookies → https://aternos.org**: kopieer `ATERNOS_SESSION` en `ATERNOS_SERVER`
+4. Maak `http/session.json` (formaat: [English README](README.md#setup--export-your-session-once)):
+
+```json
+{
+  "token": "PASTE_AJAX_TOKEN",
+  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
+  "cookies": [
+    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
+    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
+  ]
+}
+```
+
+5. Importeer:
+
+```powershell
+cd rust
+.\target\release\aterkeep.exe import ..\http\session.json
+```
+
+Maakt `session.enc` + `aterkeep.key` — **verlies het sleutelbestand niet**, het is de enige manier om de sessie te ontsleutelen.
+
+## Starten
+
+```powershell
+.\target\release\aterkeep.exe
+```
+
+Open **http://127.0.0.1:4041**.
+
+## Paneltabbladen
+
+| Tabblad | Functie |
+|---|---|
+| **Status** | statusbadge, bediening, auto-start, live log, inspector |
+| **Console** | serverlog-stream (10 s verversing) |
+| **Instellingen** | `server.properties` bewerken en opslaan |
+| **Spelers** | online spelerlijst |
+
+**Auto-startschakelaar is belangrijk:** uit = de server wordt nooit herstart. **Stoppen** schakelt hem automatisch uit.
+
+## Sessieduur
+
+Aternos-sessiecookies duren **~30 dagen**. Wanneer het paneel `OTURUM BİTTİ`/`LOGGED OUT` toont, herhaal de exportstappen en importeer opnieuw.
+
+## Beveiliging
+
+- Sessie versleuteld opgeslagen (`session.enc`, AES-256-GCM)
+- `aterkeep.key` wordt nooit gecommit
+- API-strings zijn versleuteld in de binary, worden bij runtime met jouw sleutel ontsleuteld
+- Paneel bindt alleen aan `127.0.0.1`
+
+## Licentie
+
+**aterkeep is commerciële software — geen open source.**
+
+De broncode is uitsluitend gepubliceerd voor transparantie en evaluatie.
+Persoonlijk, niet-commercieel gebruik is toegestaan. Herdistributie, doorverkoop,
+afgeleide werken en commercieel gebruik zijn **niet** toegestaan. Volledige
+voorwaarden: [LICENSE](LICENSE).
+
+## Een licentie kopen
+
+Commercieel gebruik, herdistributie, white-labelling en broncodetoegang tot de
+keep-alive-engine (`aterkeep-core`) vereisen een betaalde commerciële licentie.
+
+**Contact:** berlaylc2138@gmail.com
+
+## Disclaimer
+
+Onafhankelijk project — niet verbonden aan Aternos GmbH of Mojang Studios.

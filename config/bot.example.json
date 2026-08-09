@@ -1,0 +1,9 @@
+{
+  "enabled": false,
+  "name": "AterkeepBot",
+  "host": "",
+  "port": 25565,
+  "vanish_x": 5000,
+  "vanish_y": 320,
+  "vanish_z": 5000
+}

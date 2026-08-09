@@ -1,0 +1,127 @@
+aterkeep — Commercial Source-Available License
+Copyright (c) 2026 KaramelliS. All rights reserved.
+
+This software is NOT open source. The source code in this repository is made
+publicly visible for transparency and evaluation only. Publication of the source
+does not grant any license beyond the limited rights stated below.
+
+
+1. DEFINITIONS
+
+"Software" means the aterkeep program, this repository's source code, the
+compiled binaries distributed under the aterkeep name, all documentation, and
+the private aterkeep-core component.
+
+"Licensor" means KaramelliS, the copyright holder.
+
+"You" means the individual or entity exercising the rights granted below.
+
+"Commercial Use" means any use that is intended for or directed toward
+commercial advantage or monetary compensation, including use within a business,
+use in providing a paid or ad-supported service, or use by a paid community.
+
+
+2. GRANT — PERSONAL EVALUATION USE
+
+Subject to full compliance with this License, the Licensor grants You a
+non-exclusive, non-transferable, revocable, royalty-free license to:
+
+  (a) download and run the Software on machines You own or control, solely for
+      personal, non-commercial purposes; and
+
+  (b) view the published source code for the purpose of evaluating the Software
+      and verifying its behaviour.
+
+No other rights are granted. This grant may be revoked by the Licensor at any
+time.
+
+
+3. RESTRICTIONS
+
+Except as expressly permitted in Section 2, or under a separate written
+commercial agreement signed by the Licensor, You may NOT:
+
+  (a) sell, resell, rent, lease, sublicense, or otherwise distribute the
+      Software or any part of it, whether modified or unmodified, and whether
+      for a fee or free of charge;
+
+  (b) use the Software for Commercial Use;
+
+  (c) create or distribute derivative works based on the Software, or
+      incorporate the Software into another product or service;
+
+  (d) host the Software as a service for third parties, or otherwise make its
+      functionality available to anyone other than Yourself;
+
+  (e) reverse engineer, decompile, disassemble, deobfuscate, or otherwise
+      attempt to derive the source code, algorithms, or protocol logic of any
+      component distributed only in compiled form (including aterkeep-core),
+      except to the extent this restriction is expressly prohibited by
+      applicable law;
+
+  (f) remove, obscure, or alter any copyright, trademark, or other proprietary
+      notice contained in the Software; or
+
+  (g) publish, mirror, or redistribute the source code of the Software,
+      including forks intended for redistribution.
+
+
+4. COMMERCIAL LICENSING
+
+Rights beyond Section 2 — including commercial use, redistribution,
+white-labelling, source access to aterkeep-core, and derivative works — are
+available only under a separate paid commercial license.
+
+To purchase a commercial license, contact: berlaylc2138@gmail.com
+
+
+5. OWNERSHIP
+
+The Software is licensed, not sold. The Licensor retains all right, title, and
+interest in and to the Software, including all intellectual property rights.
+Nothing in this License transfers ownership of any part of the Software to You.
+
+
+6. THIRD-PARTY COMPONENTS
+
+The Software depends on third-party open-source libraries, each governed by its
+own license. Those licenses apply to those components only and do not extend any
+rights to the Software itself.
+
+
+7. NO AFFILIATION
+
+The Software is an independent project. It is not affiliated with, endorsed by,
+sponsored by, or in any way officially connected to Aternos GmbH or Mojang
+Studios. "Aternos" and "Minecraft" are trademarks of their respective owners.
+You are solely responsible for ensuring that Your use of the Software complies
+with the terms of service of any third-party platform You direct it at.
+
+
+8. TERMINATION
+
+This License terminates automatically and immediately, without notice, if You
+breach any of its terms. Upon termination You must cease all use of the Software
+and destroy all copies in Your possession. Sections 3, 5, 7, 9, and 10 survive
+termination.
+
+
+9. NO WARRANTY
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+FOR A PARTICULAR PURPOSE, TITLE, AND NONINFRINGEMENT. THE LICENSOR DOES NOT
+WARRANT THAT THE SOFTWARE WILL BE UNINTERRUPTED, ERROR-FREE, OR THAT IT WILL
+CONTINUE TO FUNCTION WITH ANY THIRD-PARTY SERVICE.
+
+
+10. LIMITATION OF LIABILITY
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, IN NO EVENT SHALL THE
+LICENSOR BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER LIABILITY — WHETHER IN AN
+ACTION OF CONTRACT, TORT, OR OTHERWISE — ARISING FROM, OUT OF, OR IN CONNECTION
+WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE, INCLUDING ANY
+LOSS OF DATA, LOSS OF SERVICE, OR SUSPENSION OF ANY THIRD-PARTY ACCOUNT.
+
+
+For commercial licensing enquiries: berlaylc2138@gmail.com

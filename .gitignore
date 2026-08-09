@@ -1,0 +1,48 @@
+# secrets — asla commit etme
+*.key
+*.enc
+session.json
+.env
+
+# rust build
+**/target/
+
+# aterkeep-core: PRIVATE repo'da (github.com/KaramelliS/aterkeep-core).
+# Bu repoda DEĞİL — git dependency olarak çekilir. Local geliştirme için
+# core/ dizinini ayrı klonla, buraya commit etme.
+core/
+
+# node
+**/node_modules/
+controller/package-lock.json
+
+# python
+__pycache__/
+*.pyc
+
+# runtime artifacts
+rust/run/
+*.log
+*.b64
+
+# test artifactlari
+test-panel.js
+test-fix.js
+test-debug.js
+test-shots/
+node_modules/
+package.json
+package-lock.json
+
+# bot
+bot/node_modules/
+config/bot.json
+config/bot-status.json
+
+# debug/araştırma script'leri (üretime ait değil, geliştirici araçları)
+rust/find_*.py
+rust/force_*.py
+rust/probe_*.py
+rust/check_*.py
+rust/test_*.py
+watcher/

@@ -1,0 +1,83 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            binary: aterkeep.exe
+            artifact: aterkeep-windows
+          - os: ubuntu-latest
+            binary: aterkeep
+            artifact: aterkeep-linux
+          - os: macos-latest
+            binary: aterkeep
+            artifact: aterkeep-macos
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain
+        run: rustup default stable
+      # aterkeep-core PRIVATE repo'dan git dependency çekiyor.
+      # ATERKEEP_CORE_TOKEN: PAT (repo scope) — repo Settings > Secrets'a eklenmeli.
+      # x-access-token formatı GitHub PAT için doğru; tüm platformlarda (Windows
+      # credential helper çakışması olmadan) çalışır.
+      - name: Configure private crate access
+        run: git config --global url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf https://github.com/KaramelliS/aterkeep-core.git
+      - name: Build release
+        run: cargo build --release --manifest-path rust/Cargo.toml
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: target/release/${{ matrix.binary }}
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            binary: aterkeep.exe
+            asset: aterkeep-windows.exe
+          - os: ubuntu-latest
+            binary: aterkeep
+            asset: aterkeep-linux-amd64
+          - os: macos-latest
+            binary: aterkeep
+            asset: aterkeep-macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - name: Rust toolchain
+        run: rustup default stable
+      - name: Configure private crate access
+        run: git config --global url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf https://github.com/KaramelliS/aterkeep-core.git
+      - name: Build release
+        run: cargo build --release --manifest-path rust/Cargo.toml
+      - name: Stage release asset
+        shell: bash
+        run: |
+          mkdir -p dist
+          cp target/release/${{ matrix.binary }} dist/${{ matrix.asset }}
+      - name: Upload to GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/${{ matrix.asset }}
+    # NOTE: Android/Termux (aarch64-linux-android) binary users build locally:
+    #   pkg install rust && cargo build --release --target aarch64-linux-android
+    # See docs/TERMUX.md. CI cross-compile skipped (NDK complexity).

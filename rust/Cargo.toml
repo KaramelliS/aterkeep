@@ -1,0 +1,23 @@
+[package]
+name = "aterkeep"
+version.workspace = true
+edition.workspace = true
+description = "Aternos keep-alive daemon"
+license-file.workspace = true
+# Kazara crates.io'ya yayinlanmayi engelle (ticari, kapali dagitim).
+publish = false
+
+[dependencies]
+# aterkeep-core: PRIVATE repo (critical logic — client/keepalive/ws/obfuscation).
+# Public repo bunu dependency olarak çeker; kaynak public repoda DEĞİL.
+# Local derleme için GitHub auth gerekir (gh auth / git credential helper).
+# CI deploy key ile erişir. Son kullanıcı hazır binary indirir (derlemez).
+aterkeep-core = { git = "https://github.com/KaramelliS/aterkeep-core.git", rev = "c615df6" }
+tokio = { version = "1", features = ["full"] }
+axum = "0.8"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+rand = "0.8"
+async-trait = "0.1"
+async-stream = "0.3"

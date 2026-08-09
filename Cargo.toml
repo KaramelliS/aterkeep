@@ -1,0 +1,19 @@
+[workspace]
+members = ["rust"]
+resolver = "2"
+
+[workspace.package]
+version = "1.0.0"
+edition = "2021"
+# Ticari source-available lisans (bkz. LICENSE). SPDX'te karsiligi yok — bu yuzden
+# license yerine license-file kullaniliyor. MIT DEGIL: yeniden dagitim/satis yasak.
+license-file = "LICENSE"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+# strip=true: symbol table + debuginfo tamamen soyulur → binary'de fonksiyon/mantık
+# isimleri görünmez, reverse-engineer zorlaşır (UPX kullanma: AV false-positive).
+strip = true
