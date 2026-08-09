@@ -295,6 +295,8 @@ async fn api_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoRes
         "slots": s.slots,
         "label": s.label,
         "tps": s.tps,
+        // Sunucunun kullandigi RAM (MB). Hermes akisi besler; baglanti yoksa 0.
+        "heap": s.heap,
         "queue": s.queue,
     }))
 }

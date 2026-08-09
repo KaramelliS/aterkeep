@@ -237,8 +237,17 @@ function renderStatus(s) {
   $("lastCheck").textContent = s.last_check ? new Date(s.last_check * 1000).toLocaleTimeString("tr-TR", { hour12: false }) : "—";
   $("loopState").textContent = s.running ? "…" : (s.auto ? "7/24" : "off");
   $("autoToggle").checked = !!s.auto;
+
+  // ust metrik seridi
+  $("metricPlayers").textContent = `${s.players ?? 0}/${s.slots ?? 20}`;
+  $("metricTps").textContent = s.tps ? Number(s.tps).toFixed(1) : "—";
+  $("metricRam").textContent = s.heap ? `${s.heap} MB` : "—";
+  $("metricLink").textContent = s.ws_connected ? "canlı" : "yoklama";
+  $("metricLink").className = "metric-value " + (s.ws_connected ? "ok" : "dim");
+
   if (s.last_request) renderInspector(s.last_request);
-  document.querySelectorAll(".btn").forEach(b => (b.disabled = !!s.running));
+  // Yalnizca aksiyon butonlari kilitlenir; form/kaydet butonlari serbest kalir.
+  document.querySelectorAll("[data-action]").forEach(b => (b.disabled = !!s.running));
 }
 
 function renderInspector(req) {
@@ -270,7 +279,10 @@ async function refresh() {
   }
 }
 
-document.querySelectorAll(".btn").forEach((btn) => {
+// SADECE data-action tasiyan butonlar sunucu aksiyonu tetikler. Onceden bu
+// secici tum ".btn" elemanlariniydi — "Kaydet" veya bot butonlarina basmak da
+// /api/action/undefined istegine yol aciyordu.
+document.querySelectorAll("[data-action]").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const action = btn.dataset.action;
     addLine("cmd", `$ aternos ${action}`);
@@ -465,6 +477,17 @@ $("loginForm").addEventListener("submit", async (ev) => {
   btn.disabled = false;
   btn.textContent = old;
   $("loginPassword").select();
+});
+
+$("copyAddr").addEventListener("click", async () => {
+  const addr = $("serverAddr").textContent.trim();
+  if (!addr || addr === "—") return;
+  try {
+    await navigator.clipboard.writeText(addr);
+    const b = $("copyAddr");
+    b.textContent = "kopyalandı";
+    setTimeout(() => (b.textContent = "kopyala"), 1200);
+  } catch (e) { /* clipboard izni yoksa sessiz gec */ }
 });
 
 $("logoutBtn").addEventListener("click", async () => {
