@@ -3,261 +3,298 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<meta name="color-scheme" content="dark light"/>
-<meta name="description" content="aterkeep — Aternos 7/24 sunucu bekçisi. AES-256-GCM ile şifrelenmiş oturum, düz HTTP istekleri, tarayıcı yok. / Aternos keep-alive daemon with encrypted session and plain-HTTP polling."/>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='3' fill='%2316a34a'/><text x='8' y='12' font-family='monospace' font-size='11' fill='white' text-anchor='middle'>&gt;_</text></svg>"/>
+<meta name="color-scheme" content="dark"/>
+<meta name="description" content="aterkeep — Aternos 7/24 sunucu bekçisi. Parola ile korunan panel, AES-256-GCM şifreli oturum, düz HTTP istekleri. / Aternos keep-alive daemon with an encrypted session and a password-protected panel."/>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' rx='4' fill='%2322c55e'/><text x='8' y='12' font-family='monospace' font-size='11' fill='%23052e16' text-anchor='middle'>&gt;_</text></svg>"/>
 <title>aterkeep — Aternos Keep-Alive</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/static/style.css"/>
 </head>
 <body>
-<header>
+
+<!-- ============ GIRIS EKRANI ============ -->
+<div class="overlay" id="loginOverlay" hidden>
+  <div class="card auth-card">
+    <div class="auth-brand">
+      <img class="auth-logo" src="/static/logo.svg" alt=""/>
+      <div>
+        <div class="auth-name">aterkeep</div>
+        <div class="auth-tag" data-i18n="app_sub">Aternos 7/24 sunucu bekçisi</div>
+      </div>
+    </div>
+    <h2 class="auth-title">Panel girişi</h2>
+    <p class="auth-sub">Bu panel sunucunuzu yönetir. Devam etmek için parolanızı girin.</p>
+    <form id="loginForm" autocomplete="off">
+      <label class="field">
+        <span class="field-label">Parola</span>
+        <input type="password" id="loginPassword" class="input" autocomplete="current-password" placeholder="••••••••"/>
+      </label>
+      <div class="alert alert-err" id="loginError" hidden></div>
+      <button type="submit" class="btn btn-primary btn-block" id="loginBtn">Giriş yap</button>
+    </form>
+    <p class="auth-foot">Parolanı unuttuysan kurtarma yok — <code>config/</code> klasörünü silip yeniden kurman gerekir.</p>
+  </div>
+</div>
+
+<!-- ============ KURULUM SIHIRBAZI ============ -->
+<div class="overlay" id="setupOverlay" hidden>
+  <div class="card setup-card">
+    <div class="auth-brand">
+      <img class="auth-logo" src="/static/logo.svg" alt=""/>
+      <div>
+        <div class="auth-name">aterkeep</div>
+        <div class="auth-tag">kurulum</div>
+      </div>
+    </div>
+
+    <ol class="stepper">
+      <li class="step done"><span>1</span> Dil</li>
+      <li class="step done"><span>2</span> Parola</li>
+      <li class="step done"><span>3</span> Aternos</li>
+    </ol>
+
+    <!-- 1. dil -->
+    <section class="setup-block">
+      <h3 class="block-title">1 · Panel dili</h3>
+      <select class="input" id="setupLang" aria-label="Dil"></select>
+    </section>
+
+    <!-- 2. parola -->
+    <section class="setup-block">
+      <h3 class="block-title">2 · Panel parolası</h3>
+      <p class="block-hint">Bu parola hem paneli korur <b>hem de oturumunu şifreler</b>. Anahtar diske yazılmaz, her açılışta parolandan üretilir.</p>
+      <div class="row">
+        <label class="field">
+          <span class="field-label">Parola</span>
+          <input type="password" id="setupPassword" class="input" autocomplete="new-password" placeholder="en az 4 karakter"/>
+        </label>
+        <label class="field">
+          <span class="field-label">Parola (tekrar)</span>
+          <input type="password" id="setupPassword2" class="input" autocomplete="new-password"/>
+        </label>
+      </div>
+      <div class="alert alert-warn">
+        <b>Kaybedersen kurtarma yok.</b> Parola hiçbir yerde saklanmaz; unutulursa şifreli oturum bir daha açılamaz.
+      </div>
+    </section>
+
+    <!-- 3. aternos -->
+    <section class="setup-block">
+      <h3 class="block-title">3 · Aternos oturumu</h3>
+      <ol class="steps">
+        <li><b>aternos.org</b>'a gir, giriş yap, <b>sunucu panelini aç</b></li>
+        <li><b>F12</b> → <b>Network</b> → <b>F5</b> ile sayfayı yenile</li>
+        <li>Bir <code>aternos.org</code> isteğine tıkla → Headers → Request Headers → <b><code>cookie:</code></b> satırının tamamını kopyala</li>
+        <li><b>Console</b> sekmesinde şunu çalıştır ve çıktıyı kopyala:<br/><code>window.AJAX_TOKEN + "|" + window.generateAjaxToken()</code></li>
+      </ol>
+      <label class="field">
+        <span class="field-label">Cookie header</span>
+        <textarea id="setupCookie" class="input mono" rows="4" placeholder="ATERNOS_SESSION=...; ATERNOS_SERVER=...; ..."></textarea>
+      </label>
+      <label class="field">
+        <span class="field-label">Token</span>
+        <input id="setupToken" type="text" class="input mono" placeholder="LLK12U2TNWWp6KoZj7gn|zii7mb2mqn000000:gpnl9xr52o000000"/>
+      </label>
+
+      <details class="help">
+        <summary>Cookie nasıl kopyalanır? (adım adım)</summary>
+        <div class="help-body">
+          <p><b>Önemli:</b> <code>ATERNOS_SESSION</code> çerezi <b>HttpOnly</b>'dir — <code>document.cookie</code> dahil hiçbir JavaScript komutu onu göremez. Bu yüzden yukarıdaki gibi <b>Network</b> sekmesindeki isteğin <code>cookie:</code> başlığından kopyalaman gerekir. Alternatif: <b>Application → Cookies → https://aternos.org</b>.</p>
+          <p><b>Server ID gerekmez:</b> yapıştırdığın çerezlerin içindeki <code>ATERNOS_SERVER</code> değerinden sunucun otomatik tespit edilir.</p>
+        </div>
+      </details>
+    </section>
+
+    <div class="alert alert-danger">
+      <b>Güvenlik:</b> Bu çerezler Aternos hesabına erişim sağlar. Kimseyle paylaşma, ekran görüntüsü alma. <code>config/</code> klasörünü de paylaşma — şifreli olsa bile oturum verisi içerir.
+    </div>
+
+    <div class="setup-status" id="setupStatus"></div>
+    <button class="btn btn-primary btn-block" id="setupSubmit">Kur ve başlat</button>
+  </div>
+</div>
+
+<!-- ============ PANEL ============ -->
+<header class="topbar">
   <div class="brand">
     <img class="logo-img" src="/static/logo.svg" alt="aterkeep"/>
-    <div>
+    <div class="brand-text">
       <div class="brand-name">aterkeep</div>
       <div class="brand-sub" data-i18n="app_sub">Aternos 7/24 sunucu bekçisi</div>
     </div>
   </div>
-  <div class="header-right">
-    <span class="live-dot"></span>
-    <span class="live-text" data-i18n="live">canlı</span>
-    <button class="reset-btn" id="resetSessionBtn" title="Oturumu sil ve yeniden kur">↻ Session Yenile</button>
-    
-    <select class="lang-select" id="langSelect" aria-label="Dil / Language"></select>
-    <div class="clock" id="clock">--:--:--</div>
+  <div class="topbar-right">
+    <span class="live"><span class="live-dot"></span><span data-i18n="live">canlı</span></span>
+    <span class="clock" id="clock">--:--:--</span>
+    <select class="input input-sm" id="langSelect" aria-label="Dil / Language"></select>
+    <button class="btn btn-ghost btn-sm" id="resetSessionBtn" title="Oturumu sil ve yeniden kur">↻ Oturum</button>
+    <button class="btn btn-ghost btn-sm" id="logoutBtn" title="Çıkış yap">⏻ Çıkış</button>
   </div>
 </header>
+
+<div class="banner banner-warn" id="botVersionBanner" hidden></div>
+<div class="banner banner-danger" id="exposureBanner" hidden></div>
 
 <nav class="tabs">
   <button type="button" class="tab active" data-tab="status"><span data-i18n="tab_status">Durum</span></button>
   <button type="button" class="tab" data-tab="console"><span data-i18n="tab_console">Konsol</span></button>
   <button type="button" class="tab" data-tab="settings"><span data-i18n="tab_settings">Ayarlar</span></button>
   <button type="button" class="tab" data-tab="players"><span data-i18n="tab_players">Oyuncular</span></button>
+  <button type="button" class="tab" data-tab="bot"><span data-i18n="bot_title">Bot</span></button>
 </nav>
 
-<!-- setup modu overlay -->
-<div class="setup-overlay" id="setupOverlay" hidden>
-  <div class="setup-card">
-    <div class="setup-logo">aterkeep</div>
-    <h2>Hesap Kurulumu</h2>
-    <p class="setup-intro">Sunucunuza bağlanmak için Aternos oturum çerezleri gerekli. Aşağıdaki adımları izleyin — bir kez yapılır, oturum ~30 gün geçerlidir.</p>
-
-    <div class="setup-pane" id="paneManual">
-      <ol class="setup-steps">
-        <li><b>aternos.org</b>'a gir, giriş yap, sunucu panelini aç</li>
-        <li><b>F12</b> → <b>Network (Ağ)</b> → <b>F5</b> ile yenile</li>
-        <li>Bir <code>aternos.org</code> isteğine tıkla → Headers → Request Headers → <b>cookie:</b> satırının değerini kopyala</li>
-        <li><b>Console</b> → <code>window.AJAX_TOKEN + "|" + window.generateAjaxToken()</code> → değeri kopyala</li>
-        <li>İkisini aşağıya yapıştır → <b>Kur</b></li>
-      </ol>
-      <textarea id="setupCookie" class="setup-input" placeholder="ATERNOS_SESSION=...; ATERNOS_SERVER=...; ..." rows="5"></textarea>
-      <div class="token-box">
-        <label>Token <small>(F12 → Console → <code>window.AJAX_TOKEN + "|" + window.generateAjaxToken()</code>)</small></label>
-        <input id="setupToken" type="text" placeholder="örn: LLK12U2TNWWp6KoZj7gn|zii7mb2mqn000000:gpnl9xr52o000000"/>
-      </div>
-      <div class="setup-status" id="setupStatus"></div>
-      <button class="btn btn-start setup-btn" id="setupSubmit">Kur ve Başlat</button>
-      <details class="setup-help">
-        <summary>Cookie nasıl kopyalanır? (adım adım)</summary>
-        <div class="setup-help-body">
-          <p><b>Önemli:</b> <code>ATERNOS_SESSION</code> çerezi <b>HttpOnly</b> — hiçbir JavaScript komutu (<code>document.cookie</code> dahil) onu göremez. Bu yüzden çerezi yukarıdaki gibi <b>Network</b> sekmesindeki isteğin <code>cookie:</code> başlığından kopyalamanız gerekir. Alternatif olarak <b>Application → Cookies → https://aternos.org</b> altından da okuyabilirsiniz.</p>
-          <p><b>Server ID gerekmez:</b> yapıştırdığınız çerezlerin içindeki <code>ATERNOS_SERVER</code> değerinden sunucunuz otomatik tespit edilir.</p>
-        </div>
-      </details>
-    </div>
-  </div>
-</div>
-
-<!-- bot sürüm uyarı banner -->
-<div class="banner banner-warn" id="botVersionBanner" hidden></div>
-
-
 <main>
+  <!-- ---- DURUM ---- -->
   <section class="tab-panel active" id="tab-status">
     <div class="grid">
-      <section class="card status-card">
-        <div class="card-title" data-i18n="status_title">Sunucu Durumu</div>
-        <div class="status-row">
+      <section class="card span-2">
+        <div class="card-head">
+          <h2 class="card-title" data-i18n="status_title">Sunucu Durumu</h2>
           <span class="badge" id="statusValue">BOOT</span>
-          <div class="status-desc" id="statusDesc">yükleniyor…</div>
         </div>
+        <p class="status-desc" id="statusDesc">yükleniyor…</p>
+
         <div class="queue-box" id="queueBox" hidden>
           <div class="queue-head">
-            <span class="queue-title" id="queueTitle">Sıra Bekleniyor</span>
-            <span class="queue-time" id="queueTime">—</span>
+            <span id="queuePos">—</span>
+            <span id="queueTime">—</span>
           </div>
           <div class="queue-bar"><div class="queue-fill" id="queueFill"></div></div>
-          <div class="queue-meta">
-            <span id="queuePos">—</span>
-            <span id="queuePct">—</span>
-          </div>
+          <div class="queue-meta"><span id="queuePct">0%</span></div>
         </div>
-        <div class="info-grid">
-          <div class="info"><div class="k" data-i18n="addr">adres</div><div class="v" id="serverAddr">—</div></div>
-          <div class="info"><div class="k" data-i18n="server_id">server id</div><div class="v" id="serverId">—</div></div>
-          <div class="info"><div class="k" data-i18n="last_check">son kontrol</div><div class="v" id="lastCheck">—</div></div>
-          <div class="info"><div class="k" data-i18n="loop">döngü</div><div class="v" id="loopState">—</div></div>
+
+        <dl class="meta">
+          <div><dt data-i18n="addr">adres</dt><dd id="serverAddr" class="mono">—</dd></div>
+          <div><dt data-i18n="server_id">server id</dt><dd id="serverId" class="mono">—</dd></div>
+          <div><dt data-i18n="last_check">son kontrol</dt><dd id="lastCheck">—</dd></div>
+          <div><dt data-i18n="loop">döngü</dt><dd id="loopState">—</dd></div>
+        </dl>
+
+        <div class="actions">
+          <button class="btn btn-primary" data-action="start" data-i18n="start">Başlat</button>
+          <button class="btn btn-danger" data-action="stop" data-i18n="stop">Durdur</button>
+          <button class="btn" data-action="restart" data-i18n="restart">Yeniden Başlat</button>
+          <button class="btn btn-ghost" data-action="cancel" data-i18n="cancel">İptal</button>
+          <button class="btn btn-ghost" data-action="extend" data-i18n="extend">Süre Uzat</button>
         </div>
-        <div class="controls">
-          <button type="button" class="btn btn-start" data-action="start"><span data-i18n="start">Başlat</span></button>
-          <button type="button" class="btn btn-stop" data-action="stop"><span data-i18n="stop">Durdur</span></button>
-          <button type="button" class="btn btn-restart" data-action="restart"><span data-i18n="restart">Yeniden Başlat</span></button>
-          <button type="button" class="btn btn-cancel" data-action="cancel"><span data-i18n="cancel">Kuyruk İptal</span></button>
-          <button type="button" class="btn btn-extend" data-action="extend"><span data-i18n="extend">Süre Uzat</span></button>
-        </div>
-        <div class="auto-row">
-          <label class="switch">
-            <input type="checkbox" id="autoToggle" checked/>
-            <span class="slider"></span>
-          </label>
-          <div>
-            <div class="auto-title" data-i18n="auto_title">Oto-başlat (7/24)</div>
-            <div class="auto-sub" data-i18n="auto_sub">Kapalıyken sunucu kapatılırsa geri açılmaz</div>
-          </div>
-        </div>
+
+        <label class="switch-row">
+          <input type="checkbox" id="autoToggle"/>
+          <span class="switch"></span>
+          <span class="switch-text">
+            <b data-i18n="auto_title">Oto-başlat (7/24)</b>
+            <small data-i18n="auto_sub">Kapalıyken sunucu kapatılırsa geri açılmaz</small>
+          </span>
+        </label>
       </section>
 
-      <section class="card log-card">
-        <div class="card-title" data-i18n="log_title">Canlı Log</div>
+      <section class="card">
+        <div class="card-head"><h2 class="card-title" data-i18n="log_title">Canlı Log</h2></div>
         <div class="log" id="log"></div>
       </section>
-    </div>
 
-    <div class="grid grid-2">
-      <section class="card bot-card">
-        <div class="card-title" data-i18n="bot_title">Anti-Idle Bot</div>
-        <div class="status-row">
-          <span class="badge bot-offline" id="botState">—</span>
-          <div class="status-desc" id="botDesc"></div>
-        </div>
-        <div class="info-grid">
-          <div class="info"><div class="k" data-i18n="bot_name">Bot adı</div><div class="v" id="botName">—</div></div>
-          <div class="info"><div class="k" data-i18n="bot_host">Sunucu</div><div class="v" id="botHost">—</div></div>
-          <div class="info"><div class="k" data-i18n="bot_version">Sürüm</div><div class="v" id="botVersion">—</div></div>
-          <div class="info"><div class="k" data-i18n="bot_vanished">Görünmez</div><div class="v" id="botVanished">—</div></div>
-        </div>
-        <div class="auto-row">
-          <label class="switch">
-            <input type="checkbox" id="botToggle" aria-label="Anti-idle bot toggle"/>
-            <span class="slider"></span>
-          </label>
-          <div>
-            <div class="auto-title" data-i18n="bot_toggle_title">Botu etkinleştir (sunucu online olunca girer)</div>
-            <div class="auto-sub" data-i18n="bot_toggle_sub">Anti-idle: sunucuyu boş kalıp kapanmasından korur</div>
-          </div>
-        </div>
-        <div class="bot-note bot-warn" id="botError" hidden></div>
-        <details class="bot-cfg">
-          <summary class="card-title bot-cfg-summary" data-i18n="bot_cfg_title">Bot ayarları</summary>
-          <div class="bot-cfg-grid">
-            <label class="bot-field"><span data-i18n="bot_name">Bot adı</span><input type="text" id="botCfgName" placeholder="aterkeep_bot"/></label>
-            <label class="bot-field"><span data-i18n="bot_host">Sunucu</span><input type="text" id="botCfgHost" placeholder="example.aternos.me"/></label>
-            <label class="bot-field"><span data-i18n="bot_port">Port</span><input type="number" id="botCfgPort" placeholder="25565"/></label>
-            <label class="bot-field"><span></span><span></span></label>
-            <div class="bot-field bot-field-full">
-              <span data-i18n="bot_vanish">Vanish koordinatları (X/Y/Z)</span>
-              <div class="bot-vanish-row">
-                <input type="number" id="botCfgVX" placeholder="X" aria-label="vanish X"/>
-                <input type="number" id="botCfgVY" placeholder="Y" aria-label="vanish Y"/>
-                <input type="number" id="botCfgVZ" placeholder="Z" aria-label="vanish Z"/>
-              </div>
-            </div>
-          </div>
-          <div class="bot-save-row">
-            <button type="button" class="bot-save" id="botCfgSave" data-i18n="bot_save">Kaydet</button>
-          </div>
-        </details>
-      </section>
-    </div>
-
-    <div class="grid grid-2">
-      <section class="card">
-        <div class="card-title" data-i18n="insp_title">Son İstek — Request Inspector</div>
-        <div class="insp-curl" id="inspCurl">$ —</div>
-        <pre class="insp-json" id="inspJson">—</pre>
-        <div class="insp-note" id="inspNote"></div>
-      </section>
-
-      <section class="card">
-        <div class="card-title" data-i18n="how_title">Nasıl Çalışır</div>
-        <div class="steps">
-          <div class="step"><div class="step-num">01</div><div class="step-name">session.enc</div><div class="step-desc">AES-256-GCM ile şifrelenmiş oturum dosyası. Login'e gerek yok.</div></div>
-          <div class="step"><div class="step-num">02</div><div class="step-name">sifreli HTTP</div><div class="step-desc">Tüm işlemler düz HTTP istekleri; tarayıcı yok. Endpoint'ler AES ile saklanır.</div></div>
-          <div class="step"><div class="step-num">03</div><div class="step-name">canli akis</div><div class="step-desc">Anlık durum/sıra/oyuncu/konsol tek akıştan gelir. Status sadece okunur, gereksiz start yok.</div></div>
-        </div>
-        <div class="legend">
-          <div class="legend-title">State sözlüğü</div>
-          <table>
-            <tr><td class="st">already</td><td data-i18n="st_already">sunucu çalışıyor — online</td></tr>
-            <tr><td class="st">inline</td><td data-i18n="st_inline">başlatma kuyruğunda</td></tr>
-            <tr><td class="st">eula</td><td data-i18n="st_eula">Minecraft EULA onayı gerekiyor (otomatik)</td></tr>
-            <tr><td class="st">queue</td><td data-i18n="st_queue">uzun kuyruk, onay gerekebilir</td></tr>
-          </table>
-        </div>
+      <section class="card span-2">
+        <div class="card-head"><h2 class="card-title" data-i18n="insp_title">Son İstek</h2></div>
+        <p class="hint" id="inspNote" data-i18n="insp_note">Butonlara bastığında gerçek HTTP isteği ve cevabı burada görünür. TOKEN/SEC gizlenir.</p>
+        <pre class="code" id="inspCurl">—</pre>
+        <pre class="code" id="inspJson">—</pre>
       </section>
     </div>
   </section>
 
+  <!-- ---- KONSOL ---- -->
   <section class="tab-panel" id="tab-console">
     <section class="card">
-      <div class="card-title"><span data-i18n="console_title">Sunucu Konsolu</span> <span class="hint" data-i18n="console_hint">10sn tazeleme</span></div>
-      <div class="log tall" id="serverConsole"></div>
+      <div class="card-head"><h2 class="card-title" data-i18n="console_title">Sunucu Konsolu</h2></div>
+      <p class="hint" data-i18n="console_hint">10 saniyede bir yenilenir.</p>
+      <div class="console" id="serverConsole"></div>
     </section>
   </section>
 
+  <!-- ---- AYARLAR ---- -->
   <section class="tab-panel" id="tab-settings">
     <section class="card">
-      <div class="card-title"><span data-i18n="settings_title">Sunucu Ayarları</span> <span class="hint">server.properties</span></div>
-      <table class="opts-table" id="optionsTable">
-        <thead><tr><th data-i18n="setting">Ayar</th><th data-i18n="value">Değer</th><th></th></tr></thead>
+      <div class="card-head"><h2 class="card-title" data-i18n="settings_title">Sunucu Ayarları</h2></div>
+      <p class="hint" id="optionsNote" data-i18n="settings_note">Değeri değiştirip Kaydet'e bas; değişiklik sunucuya uygulanır.</p>
+      <table class="table" id="optionsTable">
+        <thead><tr><th data-i18n="setting">ayar</th><th data-i18n="value">değer</th></tr></thead>
         <tbody></tbody>
       </table>
-      <div class="insp-note" id="optionsNote"></div>
     </section>
   </section>
 
+  <!-- ---- OYUNCULAR ---- -->
   <section class="tab-panel" id="tab-players">
     <section class="card">
-      <div class="card-title"><span data-i18n="players_title">Oyuncular</span> <span class="hint" id="playersCount">—</span></div>
-      <div class="player-list" id="playerList"></div>
+      <div class="card-head">
+        <h2 class="card-title" data-i18n="players_title">Oyuncular</h2>
+        <span class="badge" id="playersCount">0</span>
+      </div>
+      <ul class="players" id="playerList"></ul>
     </section>
   </section>
 
+  <!-- ---- BOT ---- -->
   <section class="tab-panel" id="tab-bot">
     <div class="grid">
       <section class="card">
-        <div class="card-title">Bot Durumu</div>
-        <div class="bot-status-row">
+        <div class="card-head">
+          <h2 class="card-title" data-i18n="bot_title">Anti-Idle Bot</h2>
           <span class="badge" id="botStateBadge">KAPALI</span>
-          <span class="bot-detail" id="botDetail">—</span>
         </div>
-        <div class="info-grid">
-          <div class="info"><div class="k">durum</div><div class="v" id="botStateText">—</div></div>
-          <div class="info"><div class="k">sunucu sürümü</div><div class="v" id="botServerVer">—</div></div>
-          <div class="info"><div class="k">desteklenen max</div><div class="v" id="botMaxVer">—</div></div>
-          <div class="info"><div class="k">node</div><div class="v" id="botNodeAvail">—</div></div>
+        <p class="status-desc" id="botDesc"><span id="botDetail">—</span></p>
+
+        <label class="switch-row">
+          <input type="checkbox" id="botToggle"/>
+          <span class="switch"></span>
+          <span class="switch-text">
+            <b data-i18n="bot_toggle_title">Botu etkinleştir</b>
+            <small data-i18n="bot_toggle_sub">Anti-idle: sunucu boş kaldığı için kapanmasın</small>
+          </span>
+        </label>
+
+        <dl class="meta">
+          <div><dt data-i18n="bot_name">isim</dt><dd id="botName">—</dd></div>
+          <div><dt data-i18n="bot_host">sunucu</dt><dd id="botHost" class="mono">—</dd></div>
+          <div><dt>durum</dt><dd id="botState">—</dd></div>
+          <div><dt>state</dt><dd id="botStateText">—</dd></div>
+          <div><dt data-i18n="bot_version">sürüm</dt><dd id="botServerVer">—</dd></div>
+          <div><dt>max</dt><dd id="botMaxVer">—</dd></div>
+          <div><dt data-i18n="bot_vanished">vanish</dt><dd id="botVanished">—</dd></div>
+          <div><dt>Node.js</dt><dd id="botNodeAvail">—</dd></div>
+        </dl>
+
+        <div class="actions">
+          <button class="btn btn-primary" id="botStartBtn">Başlat</button>
+          <button class="btn btn-danger" id="botStopBtn">Durdur</button>
         </div>
-        <div class="controls">
-          <button class="btn btn-start" id="botStartBtn">Başlat</button>
-          <button class="btn btn-stop" id="botStopBtn">Durdur</button>
-        </div>
-        <div id="botErrorBox" class="insp-note" hidden></div>
+        <div class="alert alert-err" id="botErrorBox" hidden></div>
+        <div id="botError" hidden></div>
+        <div id="botVersion" hidden></div>
       </section>
+
       <section class="card">
-        <div class="card-title">Bot Ayarları</div>
-        <p class="setup-intro">Bot sunucuya girip vanish (görünmez) modda AFK kalır — sunucu boş dolu kapanmaz. Görünmezlik için bota OP verin: <code>/op BotIsmi</code></p>
-        <div class="bot-form">
-          <label>Sunucu adresi<input id="cfgHost" type="text"/></label>
-          <label>Port<input id="cfgPort" type="number"/></label>
-          <label>Bot ismi (OP bu isme verilir)<input id="cfgName" type="text"/></label>
-          <div class="bot-form-row">
-            <label>Vanish X<input id="cfgVX" type="number" step="1"/></label>
-            <label>Vanish Y<input id="cfgVY" type="number" step="1"/></label>
-            <label>Vanish Z<input id="cfgVZ" type="number" step="1"/></label>
-          </div>
-          <button class="btn btn-start" id="cfgSaveBtn">Kaydet</button>
+        <div class="card-head"><h2 class="card-title" data-i18n="bot_cfg_title">Bot Ayarları</h2></div>
+        <div class="row">
+          <label class="field"><span class="field-label" data-i18n="bot_name">İsim</span><input id="cfgName" class="input" type="text"/></label>
+          <label class="field"><span class="field-label" data-i18n="bot_host">Sunucu</span><input id="cfgHost" class="input mono" type="text"/></label>
+          <label class="field"><span class="field-label" data-i18n="bot_port">Port</span><input id="cfgPort" class="input mono" type="number"/></label>
+        </div>
+        <span class="field-label" data-i18n="bot_vanish">Vanish koordinatları (X/Y/Z)</span>
+        <div class="row row-3">
+          <input id="cfgVX" class="input mono" type="number" aria-label="X"/>
+          <input id="cfgVY" class="input mono" type="number" aria-label="Y"/>
+          <input id="cfgVZ" class="input mono" type="number" aria-label="Z"/>
+        </div>
+        <button class="btn btn-primary" id="cfgSaveBtn" data-i18n="bot_save">Kaydet</button>
+
+        <!-- eski surumle uyum icin korunan alanlar -->
+        <div hidden>
+          <input id="botCfgName"/><input id="botCfgHost"/><input id="botCfgPort"/>
+          <input id="botCfgVX"/><input id="botCfgVY"/><input id="botCfgVZ"/>
+          <button id="botCfgSave"></button>
         </div>
       </section>
     </div>
@@ -265,8 +302,10 @@
 </main>
 
 <footer>
-  aterkeep v1.0 — Rust + AES-256-GCM · session tazeleme: panel üzerinden kurulum
+  <span>aterkeep · ticari lisans · <a href="https://github.com/KaramelliS/aterkeep" target="_blank" rel="noopener">github</a></span>
+  <span class="foot-warn">Bağımsız projedir; Aternos GmbH veya Mojang Studios ile bağlantısı yoktur.</span>
 </footer>
+
 <script src="/static/app.js"></script>
 </body>
 </html>

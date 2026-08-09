@@ -3,6 +3,9 @@
 *.enc
 session.json
 .env
+# Daemon config: panel parolasinin dogrulama ozeti + salt'lari icerir.
+# Anahtarin kendisi degil ama yine de kisisel — commit edilmez.
+config/aterkeep.json
 
 # rust build
 **/target/

@@ -7,7 +7,14 @@ let I18N = {};
 // sorgular ve gerekirse overlay'i acar. Gonderim mantigi setupSubmit'te.
 
 async function loadI18n() {
-  let lang = localStorage.getItem("aterkeep_lang") || "tr";
+  // Oncelik: kullanicinin bu tarayicida sectigi dil. Yoksa kurulumda secilip
+  // config'e yazilan dil. O da yoksa tr.
+  let lang = localStorage.getItem("aterkeep_lang");
+  if (!lang) {
+    try {
+      lang = (await (await fetch("/api/boot")).json()).lang || "tr";
+    } catch (e) { lang = "tr"; }
+  }
   try {
     const r = await fetch("/api/i18n/" + lang);
     I18N = await r.json();
@@ -383,18 +390,86 @@ setInterval(loadBot, 5000);
 setInterval(() => { if ($("tab-console").classList.contains("active")) loadConsole(); }, 10000);
 setInterval(refreshBot, 4000);
 
-// ---------- SETUP ----------
+// ---------- BOOT / LOGIN / SETUP ----------
+
+// Dil listesini kurulum ekranindaki secime doldurur.
+async function fillSetupLangs(selected) {
+  try {
+    const langs = await (await fetch("/api/i18n")).json();
+    const sel = $("setupLang");
+    sel.innerHTML = "";
+    langs.forEach(l => {
+      const o = document.createElement("option");
+      o.value = l.code; o.textContent = l.name;
+      if (l.code === selected) o.selected = true;
+      sel.appendChild(o);
+    });
+  } catch (e) {}
+}
+
+function showLogin(show) {
+  $("loginOverlay").hidden = !show;
+  if (show) setTimeout(() => $("loginPassword").focus(), 50);
+}
+
+/// Panel acilisinda hangi ekranin gosterilecegini belirler:
+/// kurulum yapilmamis -> setup, jeton yok/gecersiz -> giris, aksi halde panel.
 async function checkBoot() {
   try {
-    const r = await fetch("/api/boot");
-    const b = await r.json();
+    const b = await (await fetch("/api/boot")).json();
     if (b.setup_mode) {
+      await fillSetupLangs(b.lang);
       $("setupOverlay").hidden = false;
       document.querySelectorAll(".tab").forEach(t => t.disabled = true);
+      return;
+    }
+    if (b.auth_enabled) {
+      // Korumali bir uca istek at: 401 gelirse giris gerekiyor demektir.
+      const probe = await fetch("/api/status");
+      if (probe.status === 401) { showLogin(true); return; }
+    }
+    // Panele disaridan erisilebiliyorsa uyar (localhost disi adres).
+    const host = location.hostname;
+    if (host !== "127.0.0.1" && host !== "localhost" && host !== "[::1]") {
+      const el = $("exposureBanner");
+      el.textContent = "⚠ Bu panele ağ üzerinden erişiliyor. Parolan tek savunmandır — güçlü tut ve mümkünse VPN arkasına al.";
+      el.hidden = false;
     }
   } catch (e) {}
 }
 checkBoot();
+
+$("loginForm").addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const err = $("loginError");
+  const btn = $("loginBtn");
+  err.hidden = true;
+  btn.disabled = true;
+  const old = btn.textContent;
+  btn.textContent = "…";
+  try {
+    const r = await fetch("/api/login", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: $("loginPassword").value }),
+    });
+    if (r.ok) { location.reload(); return; }
+    const j = await r.json().catch(() => ({}));
+    err.textContent = j.error || "Parola hatalı";
+    err.hidden = false;
+  } catch (e) {
+    err.textContent = "Ağ hatası";
+    err.hidden = false;
+  }
+  btn.disabled = false;
+  btn.textContent = old;
+  $("loginPassword").select();
+});
+
+$("logoutBtn").addEventListener("click", async () => {
+  await fetch("/api/logout", { method: "POST" });
+  location.reload();
+});
 
 $("resetSessionBtn").addEventListener("click", async () => {
   if (!confirm("Mevcut oturum silinecek ve setup ekranına dönülecek. Devam?")) return;
@@ -405,7 +480,12 @@ $("resetSessionBtn").addEventListener("click", async () => {
 $("setupSubmit").addEventListener("click", async () => {
   const cookie = $("setupCookie").value.trim();
   let token = $("setupToken").value.trim();
+  const password = $("setupPassword").value;
+  const password2 = $("setupPassword2").value;
+  const lang = $("setupLang").value;
   const st = $("setupStatus");
+  if (password.length < 4) { st.textContent = "Panel parolası en az 4 karakter olmalı"; st.className = "setup-status err"; return; }
+  if (password !== password2) { st.textContent = "Parolalar eşleşmiyor"; st.className = "setup-status err"; return; }
   if (!cookie) { st.textContent = "Cookie boş"; st.className = "setup-status err"; return; }
   if (!cookie.includes("ATERNOS_SESSION")) {
     st.innerHTML = "Cookie'de ATERNOS_SESSION yok — Network sekmesinden tüm cookie header'ını kopyaladığından emin ol"; st.className = "setup-status err"; return;
@@ -417,7 +497,7 @@ $("setupSubmit").addEventListener("click", async () => {
     const r = await fetch("/api/setup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cookie, token }),
+      body: JSON.stringify({ cookie, token, password, lang }),
     });
     const j = await r.json();
     if (j.ok) {

@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-Tworzy `session.enc` + `aterkeep.key` — **nie zgub pliku klucza**, to jedyny sposób na odszyfrowanie sesji.
+Podczas instalacji ustawiasz **hasło panelu**: chroni panel *i* szyfruje sesję. Klucz **nigdy nie jest zapisywany na dysku** — jest wyprowadzany z hasła przy każdym uruchomieniu. Wszystko trafia do jednego folderu `config/`. **Zapomniane hasło oznacza brak odzyskania.** Do pracy bez nadzoru: `ATERKEEP_KEY='twoje-haslo' ./aterkeep`
 
 ## Uruchomienie
 
@@ -87,7 +87,8 @@ Cookies sesji Aternos działają **~30 dni**. Gdy panel pokaże `OTURUM BİTTİ`
 ## Bezpieczeństwo
 
 - Sesja szyfrowana w spoczynku (`session.enc`, AES-256-GCM)
-- `aterkeep.key` nigdy nie jest committowany
+- **Brak pliku klucza na dysku** — klucz jest wyprowadzany z hasła (PBKDF2, 600 000 iteracji, losowa sól na instalację). Skopiowany folder `config/` jest bezużyteczny bez hasła
+- **Panel wymaga logowania** — wszystkie endpointy za sesyjnym ciasteczkiem `HttpOnly`
 - Ciągi API zaszyfrowane w binarnym pliku, odszyfrowywane w czasie działania Twoim kluczem
 - Panel tylko na `127.0.0.1`
 

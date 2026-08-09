@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-Crea `session.enc` + `aterkeep.key` — **non perdere la chiave**, è l'unico modo per decifrare la sessione.
+Durante l'installazione imposti una **password del pannello**: protegge il pannello *e* cifra la sessione. La chiave **non viene mai scritta su disco**; è derivata dalla password a ogni avvio. Tutto risiede in un'unica cartella `config/`. **Se la dimentichi non c'è recupero.** Per l'esecuzione non presidiata: `ATERKEEP_KEY='la-tua-password' ./aterkeep`
 
 ## Avvio
 
@@ -87,7 +87,8 @@ I cookie di sessione Aternos durano **~30 giorni**. Quando il pannello mostra `O
 ## Sicurezza
 
 - Sessione cifrata a riposo (`session.enc`, AES-256-GCM)
-- `aterkeep.key` mai committato
+- **Nessun file di chiave su disco** — la chiave è derivata dalla password (PBKDF2, 600 000 iterazioni, sale casuale per installazione). Copiare la cartella `config/` non serve a nulla senza la password
+- **Il pannello richiede il login** — tutti gli endpoint dietro un cookie di sessione `HttpOnly`
 - Stringhe API cifrate nel binario, decodificate a runtime con la tua chiave
 - Pannello solo su `127.0.0.1`
 

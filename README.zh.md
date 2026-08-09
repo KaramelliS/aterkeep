@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-生成 `session.enc` + `aterkeep.key` — **请勿丢失密钥文件**，这是解密会话的唯一方式。
+安装时你需要设置**面板密码**：它既保护面板，也用于加密会话。密钥**绝不写入磁盘**，每次启动时都从密码派生。所有文件集中在单个 `config/` 目录中。**一旦忘记密码，将无法恢复。** 无人值守运行：`ATERKEEP_KEY='你的密码' ./aterkeep`
 
 ## 运行
 
@@ -87,7 +87,8 @@ Aternos 会话 Cookie 有效期约 **30 天**。面板显示 `OTURUM BİTTİ`/`L
 ## 安全性
 
 - 会话静态加密（`session.enc`，AES-256-GCM）
-- `aterkeep.key` 永不提交
+- **磁盘上没有密钥文件** — 密钥从密码派生（PBKDF2，600 000 次迭代，每次安装使用随机盐）。即使复制了 `config/` 目录，没有密码也无法解密
+- **面板需要登录** — 所有接口均受 `HttpOnly` 会话 Cookie 保护
 - API 字符串在二进制中加密，运行时用您的密钥解密
 - 面板仅绑定 `127.0.0.1`
 

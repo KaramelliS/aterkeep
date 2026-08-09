@@ -90,7 +90,20 @@ You'll be prompted for three values:
 | `ATERNOS_SERVER` | Same cookies list → `ATERNOS_SERVER` (your server id — a random 16-character string) |
 | `AJAX_TOKEN` | `F12` → **Console** → run `window.AJAX_TOKEN` → copy the value |
 
-Paste each value at the prompt. aterkeep **auto-detects your server address** and encrypts the session into `session.enc` (AES-256-GCM). The key file `aterkeep.key` is generated next to it — **do not lose it**, it is the only way to decrypt the session.
+You will also be asked to set a **panel password**. It protects the panel *and*
+encrypts the session — the key is derived from it and **never written to disk**, so
+there is no key file to lose (and no recovery if you forget the password).
+
+aterkeep **auto-detects your server address** and writes everything into a single
+`config/` folder: `aterkeep.json` (language, port, password verifier) and
+`session.enc` (AES-256-GCM).
+
+Because the key is not stored, aterkeep asks for the password on every launch. To
+start it from a Termux boot script without a prompt, pass it in the environment:
+
+```bash
+ATERKEEP_KEY='your-panel-password' ./aterkeep
+```
 
 > **Tip:** On Android, Chrome/Firefox devtools ("F12") are available via the desktop layout. Easier route: log in on a laptop, grab the three values there, then paste them into Termux.
 

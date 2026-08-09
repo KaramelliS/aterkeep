@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-Crée `session.enc` + `aterkeep.key` — **ne perdez pas la clé**, c'est le seul moyen de déchiffrer la session.
+Lors de l'installation, vous définissez un **mot de passe du panneau** : il protège le panneau *et* chiffre la session. La clé n'est **jamais écrite sur le disque** ; elle est dérivée du mot de passe à chaque démarrage. Tout est regroupé dans un seul dossier `config/`. **Aucune récupération possible en cas d'oubli.** Pour un fonctionnement sans surveillance : `ATERKEEP_KEY='votre-mot-de-passe' ./aterkeep`
 
 ## Lancer
 
@@ -87,7 +87,8 @@ Les cookies de session Aternos durent **~30 jours**. Quand le panel affiche `OTU
 ## Sécurité
 
 - Session chiffrée au repos (`session.enc`, AES-256-GCM)
-- `aterkeep.key` jamais commité
+- **Aucun fichier de clé sur le disque** — la clé est dérivée du mot de passe (PBKDF2, 600 000 itérations, sel aléatoire par installation). Un dossier `config/` copié ne sert à rien sans le mot de passe
+- **Le panneau exige une connexion** — tous les points d'accès derrière un cookie de session `HttpOnly`
 - Chaînes API chiffrées dans le binaire, décodées à l'exécution avec votre clé
 - Panel lié à `127.0.0.1` uniquement
 

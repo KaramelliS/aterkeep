@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-Erzeugt `session.enc` + `aterkeep.key` — **Key-Datei nicht verlieren**, nur damit lässt sich die Session entschlüsseln.
+Bei der Einrichtung legst du ein **Panel-Passwort** fest: Es schützt das Panel *und* verschlüsselt die Session. Der Schlüssel wird **nie auf die Festplatte geschrieben**, sondern bei jedem Start aus dem Passwort abgeleitet. Alles liegt in einem einzigen `config/`-Ordner. **Ohne Passwort gibt es keine Wiederherstellung.** Für unbeaufsichtigten Betrieb: `ATERKEEP_KEY='dein-passwort' ./aterkeep`
 
 ## Starten
 
@@ -87,7 +87,8 @@ Aternos-Session-Cookies halten **~30 Tage**. Zeigt das Panel `OTURUM BİTTİ`/`L
 ## Sicherheit
 
 - Session verschlüsselt (`session.enc`, AES-256-GCM)
-- `aterkeep.key` wird nie committet
+- **Keine Schlüsseldatei auf der Festplatte** — der Schlüssel wird aus dem Passwort abgeleitet (PBKDF2, 600 000 Iterationen, zufälliges Salt pro Installation). Ein kopierter `config/`-Ordner nützt ohne Passwort nichts
+- **Das Panel verlangt eine Anmeldung** — alle Endpunkte hinter einem `HttpOnly`-Sitzungscookie
 - API-Strings sind in der Binary verschlüsselt, werden nur zur Laufzeit mit deinem Schlüssel entschlüsselt
 - Panel nur auf `127.0.0.1` gebunden
 

@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-Maakt `session.enc` + `aterkeep.key` — **verlies het sleutelbestand niet**, het is de enige manier om de sessie te ontsleutelen.
+Tijdens de installatie stel je een **paneelwachtwoord** in: het beschermt het paneel *én* versleutelt de sessie. De sleutel wordt **nooit naar schijf geschreven**; hij wordt bij elke start uit het wachtwoord afgeleid. Alles staat in één `config/`-map. **Vergeten wachtwoord betekent geen herstel.** Voor onbeheerd draaien: `ATERKEEP_KEY='jouw-wachtwoord' ./aterkeep`
 
 ## Starten
 
@@ -87,7 +87,8 @@ Aternos-sessiecookies duren **~30 dagen**. Wanneer het paneel `OTURUM BİTTİ`/`
 ## Beveiliging
 
 - Sessie versleuteld opgeslagen (`session.enc`, AES-256-GCM)
-- `aterkeep.key` wordt nooit gecommit
+- **Geen sleutelbestand op schijf** — de sleutel wordt afgeleid uit het wachtwoord (PBKDF2, 600 000 iteraties, willekeurige salt per installatie). Een gekopieerde `config/`-map is nutteloos zonder wachtwoord
+- **Het paneel vereist inloggen** — alle endpoints achter een `HttpOnly`-sessiecookie
 - API-strings zijn versleuteld in de binary, worden bij runtime met jouw sleutel ontsleuteld
 - Paneel bindt alleen aan `127.0.0.1`
 

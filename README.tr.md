@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-`session.enc` + `aterkeep.key` oluşur — **key dosyasını kaybetme**, session'ı çözmenin tek yolu o.
+Kurulumda bir **panel parolası** belirlersin: hem paneli korur hem oturumu şifreler. Anahtar **diske yazılmaz**, her açılışta paroladan türetilir. Her şey tek bir `config/` klasöründe toplanır. **Parolayı unutursan kurtarma yoktur.** Arka planda çalıştırmak için: `ATERKEEP_KEY='parolan' ./aterkeep`
 
 ## Çalıştırma
 
@@ -86,8 +86,9 @@ Aternos session çerezleri **~30 gün** yaşar. Panel `OTURUM BİTTİ` gösterin
 
 ## Güvenlik
 
-- Session şifreli durur (`session.enc`, AES-256-GCM)
-- `aterkeep.key` asla commit edilmez, makineden çıkmaz
+- Session şifreli durur (`config/session.enc`, AES-256-GCM)
+- **Diskte anahtar dosyası yok** — anahtar paroladan türetilir (PBKDF2, 600.000 tur, kuruluma özel rastgele salt). `config/` klasörü çalınsa bile parola olmadan açılamaz
+- **Panel parola ister** — tüm uçlar `HttpOnly` oturum çerezi arkasında
 - API string'leri binary'de şifreli, runtime'da senin anahtarınla çözülür
 - Panel sadece `127.0.0.1`'e bağlanır
 

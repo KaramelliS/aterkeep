@@ -21,3 +21,8 @@ base64 = "0.22"
 rand = "0.8"
 async-trait = "0.1"
 async-stream = "0.3"
+# Panel giris parolasi + oturum anahtari turetme (PBKDF2-HMAC-SHA256).
+# Anahtar diske YAZILMAZ; paroladan turetilir (bkz. src/config.rs).
+pbkdf2 = "0.12"
+sha2 = "0.10"
+hmac = "0.12"

@@ -1,14 +1,13 @@
 use crate::bot::{BotConfigPatch, SharedBot};
+use crate::config::{self, AppConfig};
 use aterkeep_core::{log, split_addr, AternosClient, Cookie, LogTx, Session, SharedConsole, SharedState};
 use axum::extract::Path;
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
-use base64::Engine;
 use serde_json::{json, Value};
 use std::convert::Infallible;
-use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::broadcast::error::RecvError;
 
@@ -20,6 +19,61 @@ pub struct AppCtx {
     /// WS (Hermes) canli akis console buffer'i. ws.rs tarafindan doldurulur,
     /// /api/console tarafindan okunur. Yoksa (örn. setup modu) None olabilir.
     pub console: SharedConsole,
+    /// Daemon yapilandirmasi (dil, port, panel parolasi ozeti).
+    pub cfg: tokio::sync::Mutex<AppConfig>,
+    /// Gecerli panel oturum jetonu. Giris yapilinca uretilir, cikista silinir.
+    /// Tek jeton tutulur: yeni giris eskisini gecersiz kilar.
+    pub auth_token: tokio::sync::Mutex<Option<String>>,
+}
+
+/// Panel cerezinden oturum jetonunu okur.
+fn token_from_headers(headers: &axum::http::HeaderMap) -> Option<String> {
+    let raw = headers.get(axum::http::header::COOKIE)?.to_str().ok()?;
+    parse_cookies(raw)
+        .into_iter()
+        .find(|c| c.name == AUTH_COOKIE)
+        .map(|c| c.value)
+}
+
+const AUTH_COOKIE: &str = "aterkeep_auth";
+
+/// Istek yetkili mi? Auth kapaliysa (kurulum yapilmamis) her istek gecer.
+async fn is_authed(ctx: &AppCtx, headers: &axum::http::HeaderMap) -> bool {
+    if !ctx.cfg.lock().await.auth_enabled() {
+        return true;
+    }
+    let Some(tok) = token_from_headers(headers) else {
+        return false;
+    };
+    ctx.auth_token.lock().await.as_deref() == Some(tok.as_str())
+}
+
+/// Tum /api/* uclarini koruyan katman. Giris, durum sorgusu ve statik
+/// dosyalar disinda her sey jeton ister; yoksa 401 doner ve panel giris
+/// ekranini gosterir.
+async fn auth_layer(
+    ctx: Arc<AppCtx>,
+    req: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let path = req.uri().path().to_string();
+    // Giris akisinin kendisi ve statik varliklar korumasiz olmak zorunda.
+    let open = path == "/"
+        || path.starts_with("/static/")
+        || path == "/api/login"
+        || path == "/api/boot"
+        || path == "/api/needs-setup"
+        || path == "/api/setup"
+        || path == "/api/i18n"
+        || path.starts_with("/api/i18n/");
+    if open || is_authed(&ctx, req.headers()).await {
+        return next.run(req).await;
+    }
+    (
+        axum::http::StatusCode::UNAUTHORIZED,
+        Json(json!({ "error": "giris gerekli", "auth_required": true })),
+    )
+        .into_response()
 }
 
 pub fn router(ctx: Arc<AppCtx>) -> Router {
@@ -40,6 +94,9 @@ pub fn router(ctx: Arc<AppCtx>) -> Router {
     let c15 = ctx.clone();
     let c16 = ctx.clone();
     let c17 = ctx.clone();
+    let c18 = ctx.clone();
+    let c19 = ctx.clone();
+    let c20 = ctx.clone();
     Router::new()
         .route("/", get(index))
         .route("/static/style.css", get(style_css))
@@ -74,12 +131,54 @@ pub fn router(ctx: Arc<AppCtx>) -> Router {
         )
         .route("/api/cancel", get(move |s| api_cancel(c13, s)))
         .route("/api/extend", get(move |s| api_extend(c14, s)))
+        .route("/api/login", post(move |b| api_login(c18, b)))
+        .route("/api/logout", post(move |_: axum::extract::Request| api_logout(c19)))
+        .layer(axum::middleware::from_fn(move |req, next| {
+            auth_layer(c20.clone(), req, next)
+        }))
+}
+
+/// POST /api/login  body: { "password": "..." }
+/// Dogruysa rastgele jeton uretir, HttpOnly cerez olarak yazar.
+async fn api_login(ctx: Arc<AppCtx>, Json(body): Json<Value>) -> impl IntoResponse {
+    let password = body.get("password").and_then(|v| v.as_str()).unwrap_or("");
+    let ok = ctx.cfg.lock().await.verify_password(password);
+    if !ok {
+        // Kaba kuvvet denemelerini yavaslatmak icin kucuk bir gecikme.
+        tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+        return (
+            axum::http::StatusCode::UNAUTHORIZED,
+            Json(json!({ "ok": false, "error": "parola hatali" })),
+        )
+            .into_response();
+    }
+    let token = config::new_session_token();
+    *ctx.auth_token.lock().await = Some(token.clone());
+    // HttpOnly: JavaScript okuyamaz (XSS ile jeton calinmasini zorlastirir).
+    // SameSite=Strict: baska sitelerden gelen isteklerde cerez gonderilmez.
+    let cookie = format!("{AUTH_COOKIE}={token}; Path=/; HttpOnly; SameSite=Strict");
+    (
+        [(axum::http::header::SET_COOKIE, cookie)],
+        Json(json!({ "ok": true })),
+    )
+        .into_response()
+}
+
+/// POST /api/logout -> jetonu dusur, cerezi sil.
+async fn api_logout(ctx: Arc<AppCtx>) -> impl IntoResponse {
+    *ctx.auth_token.lock().await = None;
+    let cookie = format!("{AUTH_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0");
+    (
+        [(axum::http::header::SET_COOKIE, cookie)],
+        Json(json!({ "ok": true })),
+    )
+        .into_response()
 }
 
 /// Setup modu: session.enc yoksa paneli client olmadan acar. Sadece statik dosyalar,
 /// setup endpoint'leri ve needs-setup serve edilir. /api/setup basarili olunca
 /// session.enc yazilip self-restart yapilir; process normal modda yeniden baslar.
-pub async fn run_setup_mode() {
+pub async fn run_setup_mode(cfg: AppConfig) {
     let app = Router::new()
         .route("/", get(index))
         .route("/static/style.css", get(style_css))
@@ -89,11 +188,19 @@ pub async fn run_setup_mode() {
         // Panel acilirken /api/boot'u sorgular — setup modunda da cevap vermeli,
         // yoksa 404 alip setup overlay'ini hic gostermez.
         .route("/api/boot", get(api_boot))
+        .route("/api/i18n/{lang}", get(api_i18n_public))
+        .route("/api/i18n", get(api_i18n_list))
         .route("/api/setup", post(api_setup));
-    let listener = tokio::net::TcpListener::bind("127.0.0.1:4041")
+    let addr = format!("{}:{}", cfg.bind, cfg.port);
+    let listener = tokio::net::TcpListener::bind(&addr)
         .await
-        .expect("port 4041 dinlenemiyor");
+        .unwrap_or_else(|e| panic!("{addr} dinlenemiyor: {e}"));
     axum::serve(listener, app).await.expect("server hatasi");
+}
+
+/// Kurulum modunda ctx yok — dil dosyalarini ctx'siz servis eden surum.
+async fn api_i18n_public(Path(lang): Path<String>) -> impl IntoResponse {
+    Json(crate::translations::get(&lang))
 }
 
 async fn index() -> impl IntoResponse {
@@ -607,36 +714,6 @@ mod tests {
 
 // ---------- setup-mode backend ----------
 
-/// Sifreli oturum dosyasi — main.rs'teki SESSION_FILE ile ayni isim olmali.
-const SESSION_FILE: &str = "session.enc";
-
-/// main.rs'teki `load_or_create_key` ile AYNI mantik.
-/// Burada tekrar yaziyoruz cunku o fonksiyon private ve main.rs'e dokunamayiz.
-fn key_file() -> Result<[u8; 32], String> {
-    if let Ok(k) = std::env::var("ATERKEEP_KEY") {
-        return Ok(aterkeep_core::derive_key(&k));
-    }
-    let path = PathBuf::from("aterkeep.key");
-    if path.exists() {
-        let b64 = std::fs::read_to_string(&path).map_err(|e| e.to_string())?;
-        let bytes = base64::engine::general_purpose::STANDARD
-            .decode(b64.trim())
-            .map_err(|e| e.to_string())?;
-        if bytes.len() != 32 {
-            return Err("keyfile bozuk".into());
-        }
-        let mut key = [0u8; 32];
-        key.copy_from_slice(&bytes);
-        return Ok(key);
-    }
-    use rand::RngCore;
-    let mut key = [0u8; 32];
-    rand::thread_rng().fill_bytes(&mut key);
-    let b64 = base64::engine::general_purpose::STANDARD.encode(key);
-    std::fs::write(&path, b64).map_err(|e| e.to_string())?;
-    Ok(key)
-}
-
 /// Kurulum ekranindaki tek token alanini (token, sec) ikilisine ayirir.
 ///
 /// Panel kullaniciya `window.AJAX_TOKEN + "|" + window.generateAjaxToken()`
@@ -667,42 +744,57 @@ fn parse_cookies(raw: &str) -> Vec<Cookie> {
 /// setup tamamlandiktan sonra ayni binary'yi ayni argumanlarla yeniden baslatir
 /// ve mevcut process'i kapatir. session.enc artik mevcut oldugu icin yeni process
 /// normal (kurulu client ile) baslayacaktir.
-fn self_restart() {
+/// `password`: yeniden baslayan surece parolayi ATERKEEP_KEY ile aktarir.
+/// Anahtar diskte tutulmadigi icin cocuk surec oturumu baska turlu acamaz.
+/// Parola sadece cocugun ortaminda kalir, diske hic yazilmaz.
+fn self_restart(password: Option<&str>) {
     let exe = std::env::current_exe().ok();
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(exe) = exe {
-        let _ = std::process::Command::new(&exe).args(&args).spawn();
+        let mut cmd = std::process::Command::new(&exe);
+        cmd.args(&args);
+        if let Some(p) = password {
+            cmd.env("ATERKEEP_KEY", p);
+        }
+        let _ = cmd.spawn();
     }
-    println!("[setup] session kaydedildi — process yeniden baslatiliyor");
+    println!("[setup] process yeniden baslatiliyor");
     std::process::exit(0);
 }
 
-/// session.enc var mi yok mu? yoksa panel setup modunda acilir.
+/// Kurulum gerekli mi? Oturum dosyasi yoksa ya da panel parolasi hic
+/// belirlenmemisse evet.
 async fn api_needs_setup() -> impl IntoResponse {
-    let needed = match key_file() {
-        Ok(key) => Session::load_encrypted(&PathBuf::from(SESSION_FILE), &key).is_err(),
-        Err(_) => true,
-    };
+    let cfg = AppConfig::load();
+    let needed = !config::session_path().exists() || !cfg.auth_enabled();
     Json(json!({ "needs_setup": needed }))
 }
 
 /// GET /api/boot -> { setup_mode: bool }
 /// Panel acilir acilmaz bunu sorar: true ise kurulum overlay'ini gosterir ve
 /// sekmeleri kilitler. `needs_setup` ile ayni kaynaktan beslenir.
-async fn api_boot() -> impl IntoResponse {
-    let setup_mode = match key_file() {
-        Ok(key) => Session::load_encrypted(&PathBuf::from(SESSION_FILE), &key).is_err(),
-        Err(_) => true,
-    };
-    Json(json!({ "setup_mode": setup_mode }))
+/// Kimlik dogrulamasi ISTEMEZ — panel acilirken hangi ekrani gosterecegini
+/// (kurulum / giris / panel) buradan ogrenir.
+async fn api_boot(headers: axum::http::HeaderMap) -> impl IntoResponse {
+    let cfg = AppConfig::load();
+    let setup_mode = !config::session_path().exists() || !cfg.auth_enabled();
+    // Giris gerekiyor mu? Jetonu burada dogrulayamayiz (ctx yok) — panel
+    // korumali bir uca istek atip 401 alirsa giris ekranini acar. Yine de
+    // cerez hic yoksa dogrudan giris gerektigini bildirebiliriz.
+    let has_cookie = token_from_headers(&headers).is_some();
+    Json(json!({
+        "setup_mode": setup_mode,
+        "auth_enabled": cfg.auth_enabled(),
+        "has_session_cookie": has_cookie,
+        "lang": cfg.lang,
+    }))
 }
 
-/// POST /api/setup/reset -> session.enc'i siler ve process'i yeniden baslatir.
+/// POST /api/setup/reset -> oturum dosyasini siler ve process'i yeniden baslatir.
 /// Aternos oturumu ~30 gunde bir doldugu icin bu, panelden tek tikla yeniden
-/// kurulum akisina donmeyi saglar. Anahtar dosyasi (aterkeep.key) KORUNUR —
-/// silinirse kullanicinin elindeki baska sifreli veriler de cozulemez hale gelir.
+/// kurulum akisina donmeyi saglar.
 async fn api_setup_reset() -> impl IntoResponse {
-    let path = PathBuf::from(SESSION_FILE);
+    let path = config::session_path();
     if path.exists() {
         if let Err(e) = std::fs::remove_file(&path) {
             return Json(json!({ "ok": false, "error": format!("session silinemedi: {e}") }));
@@ -710,7 +802,8 @@ async fn api_setup_reset() -> impl IntoResponse {
     }
     tokio::spawn(async {
         tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-        self_restart();
+        // Parola aktarilmaz: oturum silindi, yeni kurulumda yenisi belirlenecek.
+        self_restart(None);
     });
     Json(json!({ "ok": true }))
 }
@@ -741,10 +834,45 @@ async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
     if token.is_empty() && cookies.is_empty() {
         return Json(json!({ "ok": false, "error": "token veya cookie gerekli" }));
     }
-    let key = match key_file() {
-        Ok(k) => k,
-        Err(e) => return Json(json!({ "ok": false, "error": format!("key: {e}") })),
+
+    // Panel parolasi: hem paneli korur hem oturumu sifreler. Anahtar diske
+    // yazilmadigi icin bu parola olmadan kurulum tamamlanamaz.
+    let password = body
+        .get("password")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+    let mut cfg = AppConfig::load();
+    // Kurulum zaten yapilmissa mevcut parolayi dogrula ve anahtari ondan turet;
+    // yeniden uretmek eski verileri cozulemez hale getirirdi.
+    let key = if cfg.auth_enabled() {
+        match cfg.derive_session_key(&password) {
+            Some(k) if cfg.verify_password(&password) => k,
+            _ => {
+                return Json(json!({ "ok": false, "error": "panel parolasi hatali" }));
+            }
+        }
+    } else {
+        if password.len() < 4 {
+            return Json(
+                json!({ "ok": false, "error": "panel parolasi en az 4 karakter olmali" }),
+            );
+        }
+        let (auth, k) = config::new_auth(&password);
+        cfg.auth = Some(auth);
+        k
     };
+
+    // Dil secimi (kurulum ekranindan) — config'e yazilir, panel bununla acilir.
+    if let Some(lang) = body.get("lang").and_then(|v| v.as_str()) {
+        if crate::translations::LANGS.iter().any(|(c, _)| *c == lang) {
+            cfg.lang = lang.to_string();
+        }
+    }
+    if let Err(e) = cfg.save() {
+        return Json(json!({ "ok": false, "error": format!("config yazilamadi: {e}") }));
+    }
+
     let strings = match aterkeep_core::Strings::decrypt_all() {
         Ok(s) => s,
         Err(e) => return Json(json!({ "ok": false, "error": format!("strings: {e}") })),
@@ -768,13 +896,14 @@ async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
             sess.server_addr = Some(addr);
         }
     }
-    if let Err(e) = sess.save_encrypted(&PathBuf::from(SESSION_FILE), &key) {
+    if let Err(e) = sess.save_encrypted(&config::session_path(), &key) {
         return Json(json!({ "ok": false, "error": format!("kayit: {e}") }));
     }
-    // 800ms sonra self-restart (response gitsin diye)
-    tokio::spawn(async {
+    // 800ms sonra self-restart (response gitsin diye). Parolayi cocuk surece
+    // ATERKEEP_KEY ile aktar — aksi halde oturumu acamaz ve kilitli baslar.
+    tokio::spawn(async move {
         tokio::time::sleep(std::time::Duration::from_millis(800)).await;
-        self_restart();
+        self_restart(Some(&password));
     });
     Json(json!({ "ok": true, "server_addr": sess.server_addr }))
 }

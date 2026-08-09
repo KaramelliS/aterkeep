@@ -59,7 +59,7 @@ cd rust
 .\target\release\aterkeep.exe import ..\http\session.json
 ```
 
-Cria `session.enc` + `aterkeep.key` — **não perca a chave**, é a única forma de descriptografar a sessão.
+Na instalação você define uma **senha do painel**: ela protege o painel *e* criptografa a sessão. A chave **nunca é gravada em disco**; é derivada da senha a cada início. Tudo fica em uma única pasta `config/`. **Se esquecer, não há recuperação.** Para execução autônoma: `ATERKEEP_KEY='sua-senha' ./aterkeep`
 
 ## Executar
 
@@ -87,7 +87,8 @@ Os cookies de sessão Aternos duram **~30 dias**. Quando o painel mostrar `OTURU
 ## Segurança
 
 - Sessão criptografada em repouso (`session.enc`, AES-256-GCM)
-- `aterkeep.key` nunca é commitado
+- **Nenhum arquivo de chave em disco** — a chave é derivada da senha (PBKDF2, 600 000 iterações, sal aleatório por instalação). Copiar a pasta `config/` não adianta sem a senha
+- **O painel exige login** — todos os endpoints atrás de um cookie de sessão `HttpOnly`
 - Strings da API criptografadas no binário, decodificadas em runtime com sua chave
 - Painel apenas em `127.0.0.1`
 
