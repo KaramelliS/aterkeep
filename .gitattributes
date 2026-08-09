@@ -1,0 +1,21 @@
+# Satir sonlari platforma gore DEGISMEMELI.
+#
+# Kurulum betikleri Windows'ta duzenlenip Linux'ta calistiriliyor. Bir .sh
+# dosyasi CRLF ile giderse shebang satiri "#!/usr/bin/env bash\r" olur ve
+# kabuk "bad interpreter" der — hata mesaji da sebebi gostermez.
+# Tersi de dogru: PowerShell 5.1 icin CRLF guvenli taraftir.
+*.sh    text eol=lf
+*.ps1   text eol=crlf
+*.rs    text eol=lf
+*.js    text eol=lf
+*.toml  text eol=lf
+*.yml   text eol=lf
+*.md    text eol=lf
+*.html  text eol=lf
+*.css   text eol=lf
+*.json  text eol=lf
+
+# Ikili dosyalar: dokunma.
+*.png   binary
+*.svg   text eol=lf
+*.exe   binary
