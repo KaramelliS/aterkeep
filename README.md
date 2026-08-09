@@ -229,7 +229,9 @@ machine (or malware running as your user) can read it. Keep the host clean.
 | Server keeps stopping | That's normal: Aternos pauses empty servers after ~60 s idle. Keep the daemon running; it restarts within 90 s. For truly uninterrupted uptime, keep a Minecraft client/bot connected. |
 | Forgot the panel password | Cannot be recovered — it is never stored. Delete the `config/` folder and run setup again with a fresh session. |
 | `decrypt failed (yanlis key?)` on start | Wrong password, or `ATERKEEP_KEY` is set to the wrong value. |
-| Won't start in the background | The password cannot be prompted for without a terminal — set `ATERKEEP_KEY` in the service's environment. |
+| Won't start in the background | The password cannot be prompted for without a terminal — set `ATERKEEP_KEY` in the service's environment, or use the installers in the [autostart guide](docs/AUTOSTART.md). |
+| Should start on boot | See [docs/AUTOSTART.md](docs/AUTOSTART.md) — scheduled task (Windows, DPAPI-protected), systemd unit (Linux), Termux:Boot (Android), each with its security tradeoff spelled out. |
+| Panel says the Aternos session expired | The cookies aged out — this is not a server fault. Press **Refresh cookies** in the banner and paste a fresh `cookie:` header. |
 | Port 4041 busy | A previous instance is still running. Kill it (`pkill aterkeep` / Task Manager), or change `port` in `config/aterkeep.json`. |
 | Running on Android? | See the dedicated [Termux guide](docs/TERMUX.md). |
 
