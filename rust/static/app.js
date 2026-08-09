@@ -274,8 +274,9 @@ document.querySelectorAll(".btn").forEach((btn) => {
   btn.addEventListener("click", async () => {
     const action = btn.dataset.action;
     addLine("cmd", `$ aternos ${action}`);
-    // cancel/extend ayri endpoint'lerde (kuyruk iptali / idle uzatma).
-    const url = (action === "cancel" || action === "extend")
+    // cancel/extend/confirm ayri endpoint'lerde (kuyruk iptali / idle uzatma /
+    // kuyruk onayi) — start/stop/restart ise /api/action/ altinda.
+    const url = (action === "cancel" || action === "extend" || action === "confirm")
       ? `/api/${action}`
       : `/api/action/${action}`;
     try { await fetch(url); } catch (e) {}

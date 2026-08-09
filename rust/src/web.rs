@@ -97,6 +97,7 @@ pub fn router(ctx: Arc<AppCtx>) -> Router {
     let c18 = ctx.clone();
     let c19 = ctx.clone();
     let c20 = ctx.clone();
+    let c21 = ctx.clone();
     Router::new()
         .route("/", get(index))
         .route("/static/style.css", get(style_css))
@@ -131,6 +132,7 @@ pub fn router(ctx: Arc<AppCtx>) -> Router {
         )
         .route("/api/cancel", get(move |s| api_cancel(c13, s)))
         .route("/api/extend", get(move |s| api_extend(c14, s)))
+        .route("/api/confirm", get(move |s| api_confirm(c21, s)))
         .route("/api/login", post(move |b| api_login(c18, b)))
         .route("/api/logout", post(move |_: axum::extract::Request| api_logout(c19)))
         .layer(axum::middleware::from_fn(move |req, next| {
@@ -393,6 +395,26 @@ async fn api_cancel(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoRes
         }
         Err(e) => {
             log(&tx, "err", format!("cancel hatasi: {e}"));
+            Json(json!({"ok": false, "error": e}))
+        }
+    }
+}
+
+/// Kuyruk sirasi geldiginde Aternos'un bekledigi onayi elle gonder.
+/// keepalive dongusu bunu "pending" gordugunde otomatik yapar; bu uc, kullanici
+/// panelden hemen tetiklemek isterse diye var.
+async fn api_confirm(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoResponse {
+    let tx = ctx.tx.clone();
+    log(&tx, "cmd", "$ aternos confirm".into());
+    match ctx.client.confirm().await {
+        Ok(v) => {
+            log(&tx, "ok", "kuyruk onayi gonderildi".into());
+            let mut s = ctx.state.lock().await;
+            s.last_request = Some(json!({"action": "confirm", "response": v.clone()}));
+            Json(json!({"ok": true, "response": v}))
+        }
+        Err(e) => {
+            log(&tx, "err", format!("onay hatasi: {e}"));
             Json(json!({"ok": false, "error": e}))
         }
     }
