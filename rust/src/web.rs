@@ -205,24 +205,33 @@ async fn api_i18n_public(Path(lang): Path<String>) -> impl IntoResponse {
     Json(crate::translations::get(&lang))
 }
 
+/// Statik varliklar binary'ye gomulu oldugu icin surum atlandiginda dosya adi
+/// degismez; cache basligi olmadan tarayici eski panelde takili kalir (yeni
+/// surumde kurulum ekranini hic gormemek gibi teshis edilmesi zor sonuclar
+/// dogurur). Her yanit yeniden dogrulansin.
+const NO_CACHE: (&str, &str) = ("Cache-Control", "no-cache, must-revalidate");
+
 async fn index() -> impl IntoResponse {
-    axum::response::Html(include_str!("../static/index.html"))
+    (
+        [NO_CACHE],
+        axum::response::Html(include_str!("../static/index.html")),
+    )
 }
 async fn style_css() -> impl IntoResponse {
     (
-        [("Content-Type", "text/css")],
+        [("Content-Type", "text/css"), NO_CACHE],
         include_str!("../static/style.css"),
     )
 }
 async fn app_js() -> impl IntoResponse {
     (
-        [("Content-Type", "application/javascript")],
+        [("Content-Type", "application/javascript"), NO_CACHE],
         include_str!("../static/app.js"),
     )
 }
 async fn logo_svg() -> impl IntoResponse {
     (
-        [("Content-Type", "image/svg+xml")],
+        [("Content-Type", "image/svg+xml"), NO_CACHE],
         include_str!("../static/logo.svg"),
     )
 }

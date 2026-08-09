@@ -2,6 +2,14 @@ const $ = (id) => document.getElementById(id);
 const logEl = $("log");
 let I18N = {};
 
+// Kurulum/giris kapisi EN ONCE acilir ve dosyanin geri kalanina bagimli
+// degildir. Asagidaki herhangi bir ust seviye ifade hata verirse (eksik bir
+// element, bozuk bir cevap...) kullanici en azindan kurulum veya giris
+// ekranini gorur — bos bir panelle bas basa kalmaz.
+// checkBoot/fillSetupLangs/showLogin `function` bildirimi oldugundan hoist
+// edilir; burada cagirmak guvenlidir.
+checkBoot();
+
 // === ONBOARDING / SETUP ===
 // Kurulum overlay'i tek yerden yonetilir: checkBoot() (asagida) /api/boot'u
 // sorgular ve gerekirse overlay'i acar. Gonderim mantigi setupSubmit'te.
@@ -450,8 +458,6 @@ async function checkBoot() {
     }
   } catch (e) {}
 }
-checkBoot();
-
 $("loginForm").addEventListener("submit", async (ev) => {
   ev.preventDefault();
   const err = $("loginError");
