@@ -44,7 +44,10 @@ jobs:
       # android hedefi). perl + make ubuntu runner'da mevcut.
       - name: Build daemon for aarch64-linux-android
         if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
-        run: cargo ndk -t arm64-v8a -p ${{ env.NDK_API }} build --release --manifest-path rust/Cargo.toml
+        # Platform flag'i BUYUK -P. Kucuk -p cargo'nun --package'i oldugu icin
+        # cargo-ndk kisa formu kullanmiyor; verilirse "26 build" cargo'ya komut
+        # olarak gecer ve anlamsiz bir hatayla patlar.
+        run: cargo ndk -t arm64-v8a -P ${{ env.NDK_API }} --manifest-path rust/Cargo.toml build --release
 
       - name: Revoke private crate credential
         if: always()
