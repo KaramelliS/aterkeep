@@ -104,6 +104,23 @@ Automatyczny start po restarcie: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (zad
 - Ciągi API zaszyfrowane w binarnym pliku, odszyfrowywane w czasie działania Twoim kluczem
 - Panel tylko na `127.0.0.1`
 
+## ⚠ Before you buy: Aternos' terms
+
+Aternos' own support documentation says:
+
+> *"Trying to bypass Aternos system by using bots, scripts, or other tricks to
+> keep your server on 24/7 is against our rules… The system automatically
+> checks for artificial activity."*
+> — [24/7 Hosting](https://support.aternos.org/hc/en-us/articles/31771896948253-24-7-Hosting)
+
+That describes this product. **Using aterkeep may get your server or your
+Aternos account suspended or deleted.** There is no way for us to prevent that,
+and the anti-idle bot makes the activity easier to spot, not harder.
+
+This is sold as-is, for use on accounts you control and are willing to risk.
+If that is not acceptable to you, do not buy it — a paid Minecraft host is the
+supported way to run a server around the clock.
+
 ## Licencja
 
 **aterkeep to oprogramowanie komercyjne — nie jest open source.**

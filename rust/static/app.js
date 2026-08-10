@@ -20,6 +20,12 @@ $("loginForm").addEventListener("submit", submitLogin);
 
 // Yakalanmamis bir hata olursa kullanici bos ekranla kalmasin — ne oldugunu
 // gorsun. Sessizce olen bir buton, en kotu hata bicimidir.
+// Yakalanmamis soz reddi de goruinsun: sessizce kaybolan bir hata, en kotu
+// hata bicimidir.
+window.addEventListener("unhandledrejection", (e) => {
+  addLine("err", `beklenmeyen hata: ${e.reason && e.reason.message ? e.reason.message : e.reason}`);
+});
+
 window.addEventListener("error", (e) => {
   const box = $("setupStatus");
   if (box && !$("setupOverlay").hidden) {
@@ -36,7 +42,14 @@ window.addEventListener("error", (e) => {
 function t(key, vars) {
   let s = I18N[key] || key;
   if (vars) {
-    for (const [k, v] of Object.entries(vars)) s = s.split("{" + k + "}").join(v);
+    // Yer tutucu degerleri KACISLANIR. Ceviri sablonu bizim (icinde bilerek
+    // <b>/<code> olabilir) ama degerler bize disaridan gelir: `server_version`
+    // dogrudan Minecraft sunucusunun ping yanitindan okunuyor ve dusman bir
+    // sunucu oraya istedigini yazabilir. Bu metinler innerHTML'e gittigi icin
+    // kacislamamak dogrudan XSS demekti.
+    for (const [k, v] of Object.entries(vars)) {
+      s = s.split("{" + k + "}").join(esc(String(v ?? "")));
+    }
   }
   return s;
 }
@@ -169,6 +182,13 @@ function renderStatus(s) {
   $("statusDesc").textContent = t(st.key);
   $("serverAddr").textContent = s.server_addr || "—";
 
+  // Durum bandi: bu urunun tek sorusunun cevabi. Renk + sozcuk + konum
+  // birlikte tasir; renk tek basina sinyal degildir.
+  const band = $("statusBand");
+  band.className = "statusband " + st.cls;
+  $("statusBandText").textContent = st.label;
+  $("statusBandAddr").textContent = s.server_addr || "";
+
   // Kuyruk karti. Sira onayi arka planda otomatik gonderilir; kart yalnizca
   // bilgi amaclidir (queue_auto notu bunu soyler).
   const q = s.queue;
@@ -195,7 +215,13 @@ function renderStatus(s) {
 
   $("metricPlayers").textContent = `${s.players ?? 0}/${s.slots ?? 20}`;
   $("metricTps").textContent = s.tps ? Number(s.tps).toFixed(1) : "—";
-  $("metricRam").textContent = s.heap ? `${s.heap} MB` : "—";
+  // RAM esikleri: OOM'a hicbir uyari almadan girmek, kategoride sik gorulen
+  // bir hata (BisectHosting bunu forkunda tamamen dusurmus).
+  const ramEl = $("metricRam");
+  ramEl.textContent = s.heap ? `${s.heap} MB` : "—";
+  const ramPct = s.heap && s.heap_max ? s.heap / s.heap_max : 0;
+  ramEl.className =
+    "metric-value" + (ramPct >= 0.9 ? " err" : ramPct >= 0.8 ? " warn" : "");
   $("metricLink").textContent = s.ws_connected ? t("link_live") : t("link_poll");
   $("metricLink").className = "metric-value " + (s.ws_connected ? "ok" : "dim");
 
@@ -417,9 +443,20 @@ clock();
 
 function addLine(kind, text, container) {
   container = container || logEl;
+  // Elemanlar tek tek kuruluyor: `kind` sunucudan geliyor ve sinif adina
+  // dogrudan enterpole edilirse ileride bir enjeksiyon yuzeyi olur.
   const div = document.createElement("div");
   div.className = "line";
-  div.innerHTML = `<span class="time">[${fmtTime(new Date())}]</span> <span class="k-${kind}">${esc(text)}</span>`;
+  const ts = document.createElement("span");
+  ts.className = "time";
+  ts.textContent = `[${fmtTime(new Date())}]`;
+  const body = document.createElement("span");
+  body.className = `k-${String(kind).replace(/[^a-z0-9_-]/gi, "")}`;
+  body.textContent = text;
+  div.append(ts, document.createTextNode(" "), body);
+  // Hata satirlari tam genislik hafif bir kirmizi yikama alir: log taranan bir
+  // seydir, rengi yalnizca metne koymak yeterince gorunur degil.
+  if (kind === "err") div.classList.add("line-err");
   container.appendChild(div);
   while (container.children.length > 500) container.removeChild(container.firstChild);
   container.scrollTop = container.scrollHeight;
@@ -455,8 +492,17 @@ document.querySelectorAll("[data-action]").forEach((btn) => {
 });
 
 $("autoToggle").addEventListener("change", async (e) => {
-  await fetch(`/api/toggle?on=${e.target.checked}`);
-  addLine("sys", `auto ${e.target.checked ? "ON" : "OFF"}`);
+  // Basarisizlikta anahtari GERI AL: yoksa arayuz kullaniciya yalan soyler —
+  // "acik" gorunur ama daemon kapali bilir.
+  const want = e.target.checked;
+  try {
+    const r = await fetch(`/api/toggle?on=${want}`);
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    addLine("sys", `auto ${want ? "ON" : "OFF"}`);
+  } catch (err) {
+    e.target.checked = !want;
+    addLine("err", `oto-baslat degistirilemedi: ${err.message}`);
+  }
 });
 
 document.querySelectorAll(".tab").forEach((tab) => {
@@ -710,6 +756,7 @@ async function submitSetup() {
         }
       };
       setTimeout(poll, 600);
+      return; // yeniden baslarken butonu tekrar etkinlestirme
     } else {
       st.textContent = "✗ " + (j.error || t("setup_fail"));
       st.className = "setup-status err";

@@ -161,6 +161,11 @@ pub(super) const EN: T = &[
     ("setup_pick_server", "Your account has several servers — pick the one to keep alive:"),
     ("setup_err_account", "Enter your Aternos username and password"),
     ("session_auto", "renews itself"),
+    (
+        "tos_warning",
+        "<b>Aternos' terms forbid keeping a server online with bots or scripts</b>, and they say the system checks for artificial activity. Using aterkeep may get your server or account suspended. You are choosing to accept that risk.",
+    ),
+    ("tos_link", "Read Aternos' 24/7 hosting rules"),
     ("setup_submit", "Install and start"),
     ("setup_busy", "installing…"),
     ("setup_ok", "done"),
