@@ -50,5 +50,8 @@ rust/check_*.py
 rust/test_*.py
 watcher/
 
-# Tanitim: gecici kare onizlemeleri (videolar KOMMIT EDILIR)
+# Tanitim: yerel uretim ciktilari. promo/ altinda YALNIZCA bitmis dosyalar
+# durur (video/*.mp4 ve svg'ler) — ureteci depoda tutmuyoruz.
 promo/_check/
+promo/make_videos.py
+promo/promo_strings.py
