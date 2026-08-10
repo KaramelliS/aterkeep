@@ -324,7 +324,6 @@ function renderBot(b) {
   $("botServerVer").textContent = st.server_version || "—";
   $("botMaxVer").textContent = st.max_supported_version || "—";
   $("botVanished").textContent = st.vanished ? "✓" : "—";
-  $("botNodeAvail").textContent = b.node_available ? t("bot_node_yes") : t("bot_node_no");
 
   if (document.activeElement !== $("botToggle")) $("botToggle").checked = !!cfg.enabled;
 
@@ -374,7 +373,7 @@ function renderBot(b) {
   lastBotState = st.state;
 }
 
-/// Tek uc, tek cizim: /api/bot/config config + status + running + node_available
+/// Tek uc, tek cizim: /api/bot/config config + status + running
 /// dondurur. Daha once iki ayri yoklama (loadBot ve refreshBot) ayni alanlari
 /// farkli sekillerde yazip birbirini eziyordu.
 async function refreshBot() {

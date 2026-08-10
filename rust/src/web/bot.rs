@@ -22,7 +22,7 @@ pub(super) async fn api_bot_status_wrapped(
     Json(json!({ "status": ctx.bot.status().await }))
 }
 
-/// GET /api/bot/config -> { config, status, running, node_available }
+/// GET /api/bot/config -> { config, status, running }
 /// Panelin bot sekmesini tek istekte doldurdugu birlesik uc.
 pub(super) async fn api_bot_config_get(
     ctx: Arc<AppCtx>,
@@ -41,7 +41,6 @@ pub(super) async fn api_bot_config_get(
         },
         "status": ctx.bot.status().await,
         "running": ctx.bot.is_running().await,
-        "node_available": crate::bot::node_available(),
     }))
 }
 

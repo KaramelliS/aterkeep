@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Panel, cihazin KENDI icinde 127.0.0.1:4041 uzerinde duz HTTP konusur.
+  API 28'den beri duz HTTP varsayilan olarak yasak ve localhost bundan muaf
+  DEGIL — bu dosya olmadan WebView paneli hic yukleyemez (ERR_CLEARTEXT_NOT_PERMITTED).
+
+  Muafiyet yalnizca loopback'e verildi. `usesCleartextTraffic="true"` demek
+  butun uygulamayi her adrese duz HTTP'ye acardi; burada TLS'li dis trafik
+  (aternos.org) korumali kaliyor.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="false">127.0.0.1</domain>
+        <domain includeSubdomains="false">localhost</domain>
+    </domain-config>
+</network-security-config>
