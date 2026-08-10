@@ -25,8 +25,11 @@
 
 ## Features
 
+- **Automatic queue confirmation** — when your turn comes up Aternos opens a ~30 second window and drops you to the back of the queue if nobody answers. This is the step that makes unattended 24/7 possible, and the reason keep-alive scripts sit in the queue forever.
+- **Signs in for you** — set up with your Aternos account and aterkeep obtains the session cookie itself, then renews it when it expires. No DevTools, no monthly copy-paste.
 - **Keep-alive loop** — polls every 90 s, restarts the server automatically when it goes offline (toggleable)
-- **Web dashboard** — live status, start/stop/restart controls, auto-start switch
+- **Anti-idle bot** — a Minecraft client that joins when the server is up so it isn't shut down for being empty
+- **Web dashboard** — live status, queue position, start/stop/restart controls, auto-start switch
 - **Server console** — watch the live server log from your browser
 - **Settings editor** — read & change `server.properties` directly from the panel
 - **Player list** — see who is online in real time
@@ -109,22 +112,49 @@ You choose a password during setup. It does double duty:
 
 ### 2. Aternos session
 
+Two ways. The first is the one you want.
+
+#### Aternos account (default)
+
+Type your Aternos username and password. aterkeep signs in over plain HTTP and
+obtains the session cookie itself — no browser, no DevTools, no copying. If your
+account has more than one server the wizard asks which to keep alive; otherwise
+it picks the only one and detects its address.
+
+Those credentials are stored inside `config/session.enc`, under the same
+AES-256-GCM encryption as the cookies, keyed off your panel password. They are
+sent to `aternos.org` and nowhere else. They exist for one purpose: when the
+session expires, **aterkeep logs in again by itself** and you never notice.
+
+Two accounts can't use this:
+
+- **Two-factor authentication enabled** — the login needs a code aterkeep can't produce.
+- **Aternos demands a captcha** — it turns this on adaptively.
+
+Both are reported as their own message, not a generic failure, and both mean
+using the second method.
+
+#### Paste cookies (fallback)
+
 1. Open **https://aternos.org**, log in, and open your server's panel.
 2. Press **F12** → **Network** → **F5** to reload.
 3. Click any `aternos.org` request → Headers → Request Headers → copy the whole
    **`cookie:`** line.
-4. Switch to **Console** and run, then copy the output:
+4. Switch to **Console**, run this and copy the output:
 
    ```js
-   window.AJAX_TOKEN + "|" + window.generateAjaxToken()
+   window.AJAX_TOKEN
    ```
 
-5. Paste both into the wizard and press **Kur ve başlat**.
+5. Paste both into the wizard and press **Install and start**.
 
 `ATERNOS_SESSION` is an **HttpOnly** cookie, so no JavaScript (including
 `document.cookie`) can read it — copying it from the Network tab is the only way.
 Your **server id is detected automatically** from the `ATERNOS_SERVER` cookie in
 what you paste; you never type it.
+
+Sessions set up this way cannot renew themselves, so you will be doing this
+again in 30 days (see below).
 
 ### Advanced — manual import (for automation)
 
@@ -163,6 +193,12 @@ ATERKEEP_KEY='your-panel-password' ./aterkeep
 
 Then open **http://127.0.0.1:4041** and log in.
 
+To have it come back after a reboot, use the installers in
+**[docs/AUTOSTART.md](docs/AUTOSTART.md)** — a scheduled task on Windows (with
+the password protected by DPAPI, so a copied `config/` folder still won't
+decrypt), a systemd unit on Linux, Termux:Boot on Android. Each one states
+plainly what storing the password costs you, and how to skip it.
+
 ## Files it creates
 
 Everything lives in a single `config/` folder next to the binary — nothing is
@@ -194,7 +230,21 @@ The **auto-start switch** is important: when it's OFF the daemon never restarts 
 
 ## Session lifetime
 
-Aternos session cookies last **~30 days**. When the panel shows `OTURUM BİTTİ` / `LOGGED OUT`, repeat the export steps above (re-run the wizard, or re-import a fresh `session.json`). That's it — once a month, two minutes.
+Aternos issues its session cookie with `Max-Age=2592000` — **exactly 30 days**,
+measured from the login response, not guessed. It can end sooner if you sign out
+elsewhere or change your password.
+
+**Set up with an account:** nothing to do. When the cookies lapse the daemon logs
+in again, writes a fresh session and carries on. You'll see one line in the log.
+
+**Set up by pasting cookies:** the panel shows a `SESSION` badge and a banner
+saying the session expired — not a stopped server, which is what it used to look
+like — with a button that drops you back into the wizard. Switching to the
+account method at that point ends the chore for good.
+
+The panel also shows **session age** next to the loop state, and after the first
+expiry, how long the previous session lasted. Aternos doesn't publish a number,
+so aterkeep measures your own.
 
 ## Security
 

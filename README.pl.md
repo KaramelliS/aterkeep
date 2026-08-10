@@ -7,11 +7,14 @@
 **Menedżer serwera Aternos i panel 24/7.** Pojedynczy plik binarny Rust (~1.7 MB) utrzymuje Twój darmowy serwer Minecraft Aternos online przez całą dobę i daje nowoczesny panel webowy — bez automatyzacji przeglądarki, czysty HTTP.
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.ar.md">العربية</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.nl.md">Nederlands</a>
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.nl.md">Nederlands</a>
 </p>
 
 ## Funkcje
 
+- **Automatyczne potwierdzanie kolejki** — gdy przychodzi twoja kolej, Aternos otwiera okno na około 30 sekund; bez odpowiedzi wracasz na koniec. To ten krok umożliwia pracę 24/7 bez nadzoru.
+- **Loguje się za ciebie** — z kontem Aternos aterkeep sam pobiera ciasteczko sesji i odnawia je po wygaśnięciu. Bez DevTools i comiesięcznego kopiowania.
+- **Bot anti-idle** — klient Minecrafta, który dołącza, gdy serwer działa, żeby nie został wyłączony jako pusty
 - **Pętla keep-alive** — sprawdza co 90 s i automatycznie restartuje serwer (wyłączalna)
 - **Panel webowy** — status na żywo, start/stop/restart, przełącznik auto-start
 - **Konsola serwera** — log serwera na żywo w przeglądarce
@@ -34,32 +37,29 @@ cargo build --release
 # binarny: target/release/aterkeep.exe
 ```
 
-## Eksport sesji (raz)
+## Instalacja (jednorazowo)
 
-1. Otwórz **https://aternos.org** i zaloguj się.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → część po `:` → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: skopiuj `ATERNOS_SESSION` i `ATERNOS_SERVER`
-4. Utwórz `http/session.json` (format: [English README](README.md#setup--export-your-session-once)):
+Uruchom plik binarny i otwórz **http://127.0.0.1:4041**. Kreator pyta o trzy
+rzeczy: język panelu, hasło panelu i sesję Aternos.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+**Hasło panelu** chroni panel *i* szyfruje sesję. Klucz **nigdy nie trafia na
+dysk** — jest wyprowadzany z hasła przy każdym starcie (PBKDF2-HMAC-SHA256,
+600 000 iteracji). **Nie ma odzyskiwania.**
 
-5. Zaimportuj:
+**Dwa sposoby na sesję:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Konto Aternos (domyślnie).** Podaj nazwę użytkownika i hasło: aterkeep
+loguje się czystym HTTP i sam pobiera ciasteczko. Jeśli masz kilka serwerów,
+kreator zapyta, który utrzymywać. Dane logowania leżą w `config/session.enc`, pod
+tym samym szyfrowaniem AES-256-GCM co ciasteczka, i trafiają wyłącznie do
+`aternos.org`.
 
-Podczas instalacji ustawiasz **hasło panelu**: chroni panel *i* szyfruje sesję. Klucz **nigdy nie jest zapisywany na dysku** — jest wyprowadzany z hasła przy każdym uruchomieniu. Wszystko trafia do jednego folderu `config/`. **Zapomniane hasło oznacza brak odzyskania.** Do pracy bez nadzoru: `ATERKEEP_KEY='twoje-haslo' ./aterkeep`
+> Nie zadziała przy **uwierzytelnianiu dwuskładnikowym** ani gdy Aternos zażąda
+> **captcha**; oba przypadki mają własny komunikat.
+
+**2. Wklejenie ciasteczek (zapasowo).** Na `aternos.org`: F12 → **Network** → F5,
+skopiuj całą linię `cookie:` dowolnego żądania i wykonaj `window.AJAX_TOKEN` w
+**Console**. Tak utworzona sesja **nie odnawia się sama**.
 
 ## Uruchomienie
 
@@ -82,7 +82,19 @@ Otwórz **http://127.0.0.1:4041**.
 
 ## Czas życia sesji
 
-Cookies sesji Aternos działają **~30 dni**. Gdy panel pokaże `OTURUM BİTTİ`/`LOGGED OUT`, powtórz eksport i zaimportuj ponownie.
+Aternos wydaje ciasteczko z `Max-Age=2592000` — **dokładnie 30 dni**; zmierzone
+w odpowiedzi logowania, nie zgadywane.
+
+**Z kontem:** nic nie trzeba robić. Po wygaśnięciu demon loguje się ponownie i
+działa dalej — jedna linia w dzienniku.
+
+**Z wklejonymi ciasteczkami:** panel pokazuje odznakę `SESSION` i komunikat o
+wygaśnięciu sesji — a nie zatrzymany serwer — z przyciskiem powrotu do kreatora.
+
+Panel pokazuje też **wiek sesji**, a po pierwszym wygaśnięciu — jak długo
+wytrzymała poprzednia.
+
+Automatyczny start po restarcie: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (zadanie Windows z DPAPI, systemd, Termux:Boot).
 
 ## Bezpieczeństwo
 

@@ -12,6 +12,9 @@
 
 ## Fonctionnalités
 
+- **Confirmation automatique de la file** — quand ton tour arrive, Aternos ouvre une fenêtre d'environ 30 secondes ; sans réponse tu repars à la fin. C'est l'étape qui rend le 24/7 sans surveillance possible.
+- **Se connecte à ta place** — avec ton compte Aternos, aterkeep obtient le cookie de session lui-même et le renouvelle à son expiration. Pas de DevTools, pas de copier-coller mensuel.
+- **Bot anti-idle** — un client Minecraft qui rejoint dès que le serveur tourne, pour qu'il ne soit pas arrêté parce qu'il est vide
 - **Boucle keep-alive** — vérifie toutes les 90 s, redémarre le serveur automatiquement (désactivable)
 - **Dashboard web** — statut en direct, démarrage/arrêt/redémarrage, interrupteur auto-start
 - **Console serveur** — log serveur en direct depuis le navigateur
@@ -34,32 +37,29 @@ cargo build --release
 # binaire : target/release/aterkeep.exe
 ```
 
-## Export de session (une fois)
+## Installation (une fois)
 
-1. Ouvrir **https://aternos.org** et se connecter.
-2. `F12` → **Console** : `window.AJAX_TOKEN` → `token` ; `window.generateAjaxToken()` → partie après `:` → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org** : copier `ATERNOS_SESSION` et `ATERNOS_SERVER`
-4. Créer `http/session.json` (format : [English README](README.md#setup--export-your-session-once)) :
+Lance le binaire et ouvre **http://127.0.0.1:4041**. L'assistant demande trois
+choses : la langue du panneau, un mot de passe, la session Aternos.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+Le **mot de passe du panneau** protège le panneau *et* chiffre la session. La clé
+n'est **jamais écrite sur le disque** : elle est dérivée du mot de passe à chaque
+démarrage (PBKDF2-HMAC-SHA256, 600 000 itérations). **Aucune récupération.**
 
-5. Importer :
+**Deux façons pour la session :**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Compte Aternos (par défaut).** Saisis ton identifiant et ton mot de passe :
+aterkeep se connecte en HTTP pur et récupère le cookie lui-même. Si ton compte a
+plusieurs serveurs, l'assistant demande lequel maintenir. Les identifiants sont
+stockés dans `config/session.enc`, sous le même chiffrement AES-256-GCM que les
+cookies, et ne sont envoyés qu'à `aternos.org`.
 
-Lors de l'installation, vous définissez un **mot de passe du panneau** : il protège le panneau *et* chiffre la session. La clé n'est **jamais écrite sur le disque** ; elle est dérivée du mot de passe à chaque démarrage. Tout est regroupé dans un seul dossier `config/`. **Aucune récupération possible en cas d'oubli.** Pour un fonctionnement sans surveillance : `ATERKEEP_KEY='votre-mot-de-passe' ./aterkeep`
+> Impossible avec l'**authentification à deux facteurs** ou si Aternos exige un
+> **captcha** ; les deux sont signalés par un message dédié.
+
+**2. Coller les cookies (repli).** Sur `aternos.org` : F12 → **Network** → F5,
+copie toute la ligne `cookie:` d'une requête, puis exécute `window.AJAX_TOKEN`
+dans la **Console**. Une session créée ainsi **ne se renouvelle pas seule**.
 
 ## Lancer
 
@@ -80,9 +80,22 @@ Ouvrir **http://127.0.0.1:4041**.
 
 **Interrupteur auto-start important :** off = le serveur ne redémarre jamais. **Arrêter** le coupe automatiquement.
 
-## Durée de vie de la session
+## Durée de la session
 
-Les cookies de session Aternos durent **~30 jours**. Quand le panel affiche `OTURUM BİTTİ`/`LOGGED OUT`, répétez l'export et réimportez.
+Aternos délivre le cookie avec `Max-Age=2592000` — **exactement 30 jours**,
+mesuré sur la réponse de connexion, pas deviné.
+
+**Avec un compte :** rien à faire. À l'expiration, le démon se reconnecte et
+continue — une ligne dans le journal.
+
+**Avec des cookies collés :** le panneau affiche un badge `SESSION` et une
+bannière expliquant que la session a expiré — ce n'est pas un serveur arrêté —
+avec un bouton qui ramène à l'assistant.
+
+Le panneau affiche aussi l'**âge de la session**, et après la première
+expiration, la durée de la précédente.
+
+Démarrage automatique après un redémarrage : **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (tâche planifiée Windows avec DPAPI, systemd, Termux:Boot).
 
 ## Sécurité
 

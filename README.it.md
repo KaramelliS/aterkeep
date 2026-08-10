@@ -12,6 +12,9 @@
 
 ## Funzionalità
 
+- **Conferma automatica della coda** — quando arriva il tuo turno Aternos apre una finestra di circa 30 secondi; se nessuno risponde torni in fondo. È il passaggio che rende possibile il 24/7 senza sorveglianza.
+- **Accede al posto tuo** — con il tuo account Aternos, aterkeep ottiene da solo il cookie di sessione e lo rinnova alla scadenza. Niente DevTools, niente copia-incolla mensile.
+- **Bot anti-idle** — un client Minecraft che entra quando il server è acceso, così non viene spento perché vuoto
 - **Ciclo keep-alive** — controlla ogni 90 s e riavvia il server automaticamente (disattivabile)
 - **Dashboard web** — stato live, avvio/stop/riavvio, interruttore auto-start
 - **Console server** — log del server in diretta dal browser
@@ -34,32 +37,29 @@ cargo build --release
 # binario: target/release/aterkeep.exe
 ```
 
-## Esporta sessione (una volta)
+## Installazione (una volta)
 
-1. Apri **https://aternos.org** e accedi.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → parte dopo `:` → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: copia `ATERNOS_SESSION` e `ATERNOS_SERVER`
-4. Crea `http/session.json` (formato: [English README](README.md#setup--export-your-session-once)):
+Avvia il binario e apri **http://127.0.0.1:4041**. La procedura guidata chiede
+tre cose: lingua del pannello, password del pannello, sessione Aternos.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+La **password del pannello** protegge il pannello *e* cifra la sessione. La
+chiave **non viene mai scritta su disco**: è derivata dalla password a ogni avvio
+(PBKDF2-HMAC-SHA256, 600 000 iterazioni). **Non c'è recupero.**
 
-5. Importa:
+**Due modi per la sessione:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Account Aternos (predefinito).** Inserisci nome utente e password: aterkeep
+accede via HTTP puro e ottiene il cookie da solo. Se l'account ha più server, la
+procedura chiede quale tenere acceso. Le credenziali stanno in
+`config/session.enc`, con la stessa cifratura AES-256-GCM dei cookie, e vengono
+inviate solo ad `aternos.org`.
 
-Durante l'installazione imposti una **password del pannello**: protegge il pannello *e* cifra la sessione. La chiave **non viene mai scritta su disco**; è derivata dalla password a ogni avvio. Tutto risiede in un'unica cartella `config/`. **Se la dimentichi non c'è recupero.** Per l'esecuzione non presidiata: `ATERKEEP_KEY='la-tua-password' ./aterkeep`
+> Non funziona con l'**autenticazione a due fattori** né se Aternos richiede un
+> **captcha**; entrambi vengono segnalati con un messaggio dedicato.
+
+**2. Incollare i cookie (ripiego).** Su `aternos.org`: F12 → **Network** → F5,
+copia l'intera riga `cookie:` di una richiesta ed esegui `window.AJAX_TOKEN`
+nella **Console**. Una sessione creata così **non si rinnova da sola**.
 
 ## Avvio
 
@@ -80,9 +80,22 @@ Apri **http://127.0.0.1:4041**.
 
 **Interruttore auto-start importante:** spento = il server non viene mai riavviato. **Stop** lo spegne automaticamente.
 
-## Durata sessione
+## Durata della sessione
 
-I cookie di sessione Aternos durano **~30 giorni**. Quando il pannello mostra `OTURUM BİTTİ`/`LOGGED OUT`, ripeti l'export e reimporta.
+Aternos rilascia il cookie con `Max-Age=2592000` — **esattamente 30 giorni**,
+misurato dalla risposta di login, non ipotizzato.
+
+**Con account:** niente da fare. Alla scadenza il daemon riaccede e prosegue —
+una riga nel registro.
+
+**Con cookie incollati:** il pannello mostra un badge `SESSION` e un avviso di
+sessione scaduta — non un server spento — con un pulsante che riporta alla
+procedura guidata.
+
+Il pannello mostra anche l'**età della sessione** e, dopo la prima scadenza,
+quanto è durata la precedente.
+
+Avvio automatico dopo il riavvio: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (attività pianificata di Windows con DPAPI, systemd, Termux:Boot).
 
 ## Sicurezza
 

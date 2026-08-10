@@ -7,11 +7,14 @@
 **Aternos 服务器管理与 24/7 看护面板。** 单个 Rust 二进制（约 1.7 MB）让您的免费 Aternos Minecraft 服务器全天在线，并提供现代 Web 面板——无需浏览器自动化，纯 HTTP。
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.ar.md">العربية</a>
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a>
 </p>
 
 ## 功能
 
+- **自动确认排队** — 轮到你时 Aternos 会打开约 30 秒的确认窗口，无人响应就会被排到队尾。正是这一步让无人值守的 7×24 运行成为可能。
+- **替你登录** — 用 Aternos 账号设置后，aterkeep 会自己获取会话 Cookie，并在过期时自动更新。不需要 DevTools，也不用每月复制粘贴。
+- **防挂机机器人** — 服务器启动后自动加入的 Minecraft 客户端，避免因为没人而被关闭
 - **Keep-alive 循环** — 每 90 秒检查，服务器离线时自动重启（可关闭）
 - **Web 面板** — 实时状态、启动/停止/重启、自动启动开关
 - **服务器控制台** — 浏览器中查看实时服务器日志
@@ -34,32 +37,27 @@ cargo build --release
 # 二进制：target/release/aterkeep.exe
 ```
 
-## 导出会话（一次）
+## 安装（仅一次）
 
-1. 打开 **https://aternos.org** 并登录。
-2. `F12` → **Console**：`window.AJAX_TOKEN` → `token`；`window.generateAjaxToken()` → `:` 之后的部分 → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**：复制 `ATERNOS_SESSION` 和 `ATERNOS_SERVER`
-4. 创建 `http/session.json`（格式见 [English README](README.md#setup--export-your-session-once)）：
+运行程序并打开 **http://127.0.0.1:4041**。向导会询问三件事：面板语言、面板
+密码、Aternos 会话。
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+**面板密码**既保护面板，也用于加密会话。密钥**不会写入磁盘**，而是每次启动时
+从密码派生（PBKDF2-HMAC-SHA256，600000 次迭代）。**无法找回。**
 
-5. 导入：
+**提供会话有两种方式：**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Aternos 账号（默认）。** 输入用户名和密码，aterkeep 通过纯 HTTP 登录并
+自行获取 Cookie。若账号下有多台服务器，向导会询问要保持哪一台。凭据保存在
+`config/session.enc` 中，与 Cookie 使用同一套 AES-256-GCM 加密，且只会发送到
+`aternos.org`。
 
-安装时你需要设置**面板密码**：它既保护面板，也用于加密会话。密钥**绝不写入磁盘**，每次启动时都从密码派生。所有文件集中在单个 `config/` 目录中。**一旦忘记密码，将无法恢复。** 无人值守运行：`ATERKEEP_KEY='你的密码' ./aterkeep`
+> 开启**两步验证**的账号无法使用，Aternos 要求 **captcha** 时同样如此；两种
+> 情况都会给出专门的提示。
+
+**2. 粘贴 Cookie（备用）。** 在 `aternos.org` 按 F12 → **Network** → F5，复制
+任意请求的整行 `cookie:`，并在 **Console** 中执行 `window.AJAX_TOKEN`。这种
+方式建立的会话**不会自动更新**。
 
 ## 运行
 
@@ -82,7 +80,17 @@ cd rust
 
 ## 会话有效期
 
-Aternos 会话 Cookie 有效期约 **30 天**。面板显示 `OTURUM BİTTİ`/`LOGGED OUT` 时，重复导出并重新导入即可。
+Aternos 下发 Cookie 时带有 `Max-Age=2592000` — **正好 30 天**。这是从登录响应
+中实测的数字，不是猜测。
+
+**用账号设置：** 无需操作。过期后守护进程会重新登录并继续运行，日志里只留一行。
+
+**粘贴 Cookie 设置：** 面板会显示 `SESSION` 标记和会话过期提示，而不是让人以为
+服务器停了，并提供一个直接回到向导的按钮。
+
+面板还会显示**会话已运行时长**，第一次过期之后也会显示上一个会话坚持了多久。
+
+重启后自动启动：**[docs/AUTOSTART.md](docs/AUTOSTART.md)**（受 DPAPI 保护的 Windows 计划任务、systemd、Termux:Boot）。
 
 ## 安全性
 

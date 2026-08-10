@@ -7,11 +7,14 @@
 **Aternos 서버 관리자 & 24/7 대시보드.** 단일 Rust 바이너리(약 1.7MB)로 무료 Aternos Minecraft 서버를 하루 24시간 온라인으로 유지하고 현대적인 웹 패널로 제어합니다 — 브라우저 자동화 없음, 순수 HTTP.
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.ar.md">العربية</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a>
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a>
 </p>
 
 ## 기능
 
+- **대기열 자동 확인** — 차례가 오면 Aternos가 약 30초짜리 확인 창을 여는데, 아무도 응답하지 않으면 맨 뒤로 밀립니다. 무인 24시간 운영을 가능하게 하는 단계가 바로 이것입니다.
+- **대신 로그인합니다** — Aternos 계정으로 설정하면 aterkeep이 세션 쿠키를 직접 받아오고 만료되면 스스로 갱신합니다. DevTools도, 매달 복사·붙여넣기도 없습니다.
+- **안티 아이들 봇** — 서버가 켜지면 접속해서 비어 있다는 이유로 종료되지 않게 하는 마인크래프트 클라이언트
 - **Keep-alive 루프** — 90초마다 확인, 서버가 꺼지면 자동 재시작 (끌 수 있음)
 - **웹 패널** — 실시간 상태, 시작/중지/재시작, 자동 시작 스위치
 - **서버 콘솔** — 브라우저에서 실시간 서버 로그
@@ -34,32 +37,28 @@ cargo build --release
 # 바이너리: target/release/aterkeep.exe
 ```
 
-## 세션 내보내기 (한 번)
+## 설치 (한 번만)
 
-1. **https://aternos.org** 열고 로그인.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → `:` 뒤 부분 → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: `ATERNOS_SESSION`, `ATERNOS_SERVER` 복사
-4. `http/session.json` 생성 (형식: [English README](README.md#setup--export-your-session-once)):
+바이너리를 실행하고 **http://127.0.0.1:4041** 을 엽니다. 마법사는 세 가지를
+묻습니다: 패널 언어, 패널 비밀번호, Aternos 세션.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+**패널 비밀번호**는 패널을 보호하는 동시에 세션을 암호화합니다. 키는 디스크에
+**저장되지 않고** 실행할 때마다 비밀번호에서 유도됩니다(PBKDF2-HMAC-SHA256,
+600,000회). **복구 방법은 없습니다.**
 
-5. 가져오기:
+**세션을 넘기는 방법은 두 가지입니다:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Aternos 계정 (기본값).** 아이디와 비밀번호를 입력하면 aterkeep이 순수
+HTTP로 로그인해 쿠키를 직접 가져옵니다. 서버가 여러 개면 어느 것을 유지할지
+묻습니다. 자격 증명은 `config/session.enc` 안에 쿠키와 동일한 AES-256-GCM
+암호화로 저장되며 `aternos.org` 외에는 어디에도 전송되지 않습니다.
 
-설치 중에 **패널 비밀번호**를 설정합니다. 패널을 보호하는 동시에 세션을 암호화합니다. 키는 **디스크에 저장되지 않으며** 시작할 때마다 비밀번호에서 파생됩니다. 모든 파일은 단일 `config/` 폴더에 모입니다. **잊어버리면 복구할 수 없습니다.** 무인 실행 시: `ATERKEEP_KEY='비밀번호' ./aterkeep`
+> **2단계 인증**이 켜진 계정과 Aternos가 **캡차**를 요구하는 경우에는 쓸 수
+> 없습니다. 두 경우 모두 별도의 메시지로 안내됩니다.
+
+**2. 쿠키 붙여넣기 (대체).** `aternos.org`에서 F12 → **Network** → F5, 아무
+요청의 `cookie:` 줄 전체를 복사하고 **Console**에서 `window.AJAX_TOKEN`을
+실행합니다. 이렇게 만든 세션은 **스스로 갱신되지 않습니다**.
 
 ## 실행
 
@@ -80,9 +79,21 @@ cd rust
 
 **자동 시작 스위치 중요:** 꺼져 있으면 서버가 다시는 재시작되지 않습니다. **중지** 버튼이 자동으로 끕니다.
 
-## 세션 유효 기간
+## 세션 수명
 
-Aternos 세션 쿠키는 **약 30일** 유효합니다. 패널에 `OTURUM BİTTİ`/`LOGGED OUT`이 표시되면 내보내기 단계를 반복하고 다시 가져오세요.
+Aternos는 쿠키를 `Max-Age=2592000`으로 내려줍니다 — **정확히 30일**. 추측이
+아니라 로그인 응답에서 측정한 값입니다.
+
+**계정으로 설정한 경우:** 할 일이 없습니다. 만료되면 데몬이 다시 로그인하고
+계속 동작합니다. 로그에 한 줄이 남습니다.
+
+**쿠키를 붙여넣은 경우:** 패널이 `SESSION` 배지와 세션 만료 안내를 표시합니다.
+예전처럼 서버가 꺼진 것으로 보이지 않으며, 버튼으로 마법사로 돌아갑니다.
+
+패널은 **세션 경과 시간**도 보여주고, 첫 만료 이후에는 이전 세션이 얼마나
+버텼는지도 알려줍니다.
+
+재부팅 후 자동 시작: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (DPAPI로 보호되는 Windows 작업, systemd, Termux:Boot).
 
 ## 보안
 

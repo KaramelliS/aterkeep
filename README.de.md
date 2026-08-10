@@ -12,6 +12,9 @@
 
 ## Funktionen
 
+- **Automatische Warteschlangen-Bestätigung** — wenn du an der Reihe bist, öffnet Aternos ein ~30-Sekunden-Fenster; antwortet niemand, landest du hinten. Dieser Schritt macht den unbeaufsichtigten 24/7-Betrieb überhaupt erst möglich.
+- **Meldet sich für dich an** — mit deinem Aternos-Konto holt aterkeep das Session-Cookie selbst und erneuert es, wenn es abläuft. Keine DevTools, kein monatliches Kopieren.
+- **Anti-Idle-Bot** — ein Minecraft-Client, der beitritt, sobald der Server läuft, damit er nicht wegen Leerlauf abgeschaltet wird
 - **Keep-alive-Schleife** — prüft alle 90 s und startet den Server automatisch neu (abschaltbar)
 - **Web-Dashboard** — Live-Status, Start/Stopp/Neustart, Auto-Start-Schalter
 - **Server-Konsole** — Live-Serverlog im Browser
@@ -34,32 +37,30 @@ cargo build --release
 # Binary: target/release/aterkeep.exe
 ```
 
-## Session exportieren (einmalig)
+## Einrichtung (einmalig)
 
-1. **https://aternos.org** öffnen und anmelden.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → Teil nach `:` → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: `ATERNOS_SESSION` und `ATERNOS_SERVER` kopieren
-4. `http/session.json` erstellen (Format: [English README](README.md#setup--export-your-session-once)):
+Binary starten und **http://127.0.0.1:4041** öffnen. Der Assistent fragt drei
+Dinge: Panel-Sprache, Panel-Passwort, Aternos-Sitzung.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+Das **Panel-Passwort** schützt das Panel *und* verschlüsselt die Sitzung. Der
+Schlüssel wird **nie gespeichert**, sondern bei jedem Start daraus abgeleitet
+(PBKDF2-HMAC-SHA256, 600 000 Runden). **Es gibt keine Wiederherstellung.**
 
-5. Importieren:
+**Zwei Wege für die Aternos-Sitzung:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Aternos-Konto (Standard).** Benutzername und Passwort eingeben — aterkeep
+meldet sich über reines HTTP an und holt das Cookie selbst. Bei mehreren Servern
+fragt der Assistent, welcher wachgehalten werden soll. Die Zugangsdaten liegen in
+`config/session.enc` unter derselben AES-256-GCM-Verschlüsselung wie die Cookies
+und gehen ausschließlich an `aternos.org`.
 
-Bei der Einrichtung legst du ein **Panel-Passwort** fest: Es schützt das Panel *und* verschlüsselt die Session. Der Schlüssel wird **nie auf die Festplatte geschrieben**, sondern bei jedem Start aus dem Passwort abgeleitet. Alles liegt in einem einzigen `config/`-Ordner. **Ohne Passwort gibt es keine Wiederherstellung.** Für unbeaufsichtigten Betrieb: `ATERKEEP_KEY='dein-passwort' ./aterkeep`
+> Funktioniert nicht bei **Zwei-Faktor-Authentifizierung** oder wenn Aternos ein
+> **Captcha** verlangt. Beides wird als eigene Meldung angezeigt.
+
+**2. Cookies einfügen (Rückfallweg).** Auf `aternos.org`: F12 → **Network** → F5,
+die komplette `cookie:`-Zeile einer Anfrage kopieren, in der **Console**
+`window.AJAX_TOKEN` ausführen. Beides in den Assistenten einfügen. So eingerichtete
+Sitzungen **erneuern sich nicht selbst**.
 
 ## Starten
 
@@ -80,9 +81,22 @@ Dann **http://127.0.0.1:4041** im Browser öffnen.
 
 **Auto-Start-Schalter ist wichtig:** Aus = der Server wird nie wieder gestartet. **Stopp** schaltet ihn automatisch aus.
 
-## Session-Lebensdauer
+## Sitzungsdauer
 
-Aternos-Session-Cookies halten **~30 Tage**. Zeigt das Panel `OTURUM BİTTİ`/`LOGGED OUT`, Export-Schritte wiederholen und neu importieren.
+Aternos setzt das Cookie mit `Max-Age=2592000` — **genau 30 Tage**, aus der
+Login-Antwort gemessen, nicht geraten.
+
+**Mit Konto eingerichtet:** nichts zu tun. Läuft die Sitzung ab, meldet sich der
+Daemon neu an und macht weiter — eine Zeile im Protokoll.
+
+**Mit eingefügten Cookies:** das Panel zeigt ein `SESSION`-Abzeichen und einen
+Hinweis, dass die Sitzung abgelaufen ist — früher sah das wie ein gestoppter
+Server aus — mit einer Schaltfläche zurück in den Assistenten.
+
+Das Panel zeigt außerdem das **Sitzungsalter** und nach dem ersten Ablauf, wie
+lange die vorherige gehalten hat.
+
+Automatischer Start nach dem Neustart: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (Windows-Aufgabe mit DPAPI, systemd, Termux:Boot).
 
 ## Sicherheit
 

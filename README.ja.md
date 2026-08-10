@@ -7,11 +7,14 @@
 **Aternos サーバーマネージャー & 24/7 ダッシュボード。** 単一の Rust バイナリ（約1.7MB）で無料の Aternos Minecraft サーバーを 24 時間オンラインに保ち、モダンな Web パネルで操作できます — ブラウザ自動化なし、純粋な HTTP。
 
 <p align="center">
-  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.ar.md">العربية</a> · <a href="README.zh.md">中文</a>
+  <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.zh.md">中文</a>
 </p>
 
 ## 機能
 
+- **順番の自動承認** — 順番が来ると Aternos は約30秒の承認ウィンドウを開き、応答がなければ最後尾に戻されます。無人での24時間稼働を可能にしているのはこの手順です。
+- **代わりにログインします** — Aternos アカウントで設定すれば、aterkeep がセッション Cookie を自分で取得し、期限が切れたら更新します。DevTools も毎月のコピーも不要です。
+- **アンチアイドルボット** — サーバーが起動すると参加し、空だからという理由で停止されるのを防ぐ Minecraft クライアント
 - **Keep-alive ループ** — 90 秒ごとに確認し、オフラインなら自動再起動（切替可）
 - **Web パネル** — ライブ状態、起動/停止/再起動、自動起動スイッチ
 - **サーバーコンソール** — ブラウザでサーバーログをリアルタイム表示
@@ -34,32 +37,28 @@ cargo build --release
 # バイナリ: target/release/aterkeep.exe
 ```
 
-## セッションのエクスポート（一度だけ）
+## セットアップ（初回のみ）
 
-1. **https://aternos.org** を開いてログイン。
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → `:` の後 → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: `ATERNOS_SESSION` と `ATERNOS_SERVER` をコピー
-4. `http/session.json` を作成（形式: [English README](README.md#setup--export-your-session-once)）:
+バイナリを実行し **http://127.0.0.1:4041** を開きます。ウィザードが尋ねるのは
+3つ、パネルの言語・パネルのパスワード・Aternos セッションです。
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+**パネルのパスワード**はパネルを保護し、同時にセッションを暗号化します。鍵は
+**ディスクに書き込まれず**、起動のたびにパスワードから導出されます
+（PBKDF2-HMAC-SHA256、60万回）。**復旧手段はありません。**
 
-5. インポート:
+**セッションの与え方は2通り:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Aternos アカウント（既定）。** ユーザー名とパスワードを入力すると、
+aterkeep が純粋な HTTP でログインし Cookie を自分で取得します。サーバーが複数
+ある場合はどれを維持するか尋ねます。認証情報は `config/session.enc` の中に、
+Cookie と同じ AES-256-GCM 暗号の下に保存され、送信先は `aternos.org` だけです。
 
-セットアップ時に**パネルのパスワード**を設定します。これはパネルを保護すると同時にセッションを暗号化します。鍵は**ディスクに保存されず**、起動のたびにパスワードから導出されます。すべてのファイルは単一の `config/` フォルダーにまとまります。**忘れた場合、復旧手段はありません。** 無人実行の場合: `ATERKEEP_KEY='あなたのパスワード' ./aterkeep`
+> **二段階認証**が有効なアカウント、および Aternos が **captcha** を要求した
+> 場合は使えません。どちらも専用のメッセージで通知されます。
+
+**2. Cookie の貼り付け（代替）。** `aternos.org` で F12 → **Network** → F5、
+任意のリクエストの `cookie:` 行全体をコピーし、**Console** で
+`window.AJAX_TOKEN` を実行します。この方法のセッションは**自動更新されません**。
 
 ## 起動
 
@@ -80,9 +79,22 @@ cd rust
 
 **自動起動スイッチは重要:** オフにするとサーバーは二度と再起動されません。**停止**ボタンは自動的にオフにします。
 
-## セッションの有効期間
+## セッションの寿命
 
-Aternos のセッション Cookie は **約30日** 有効です。パネルに `OTURUM BİTTİ`/`LOGGED OUT` と表示されたら、エクスポート手順を繰り返して再インポートしてください。
+Aternos は Cookie を `Max-Age=2592000` で発行します — **ちょうど30日**。推測
+ではなく、ログイン応答から実測した値です。
+
+**アカウントで設定した場合:** 何もする必要はありません。期限が切れると
+デーモンが再ログインして続行します。ログに1行出るだけです。
+
+**Cookie を貼り付けた場合:** パネルは `SESSION` バッジと「セッションが切れた」
+という表示を出します（以前は停止したサーバーのように見えていました）。ボタンで
+ウィザードに戻れます。
+
+パネルには**セッションの経過時間**も表示され、最初の失効後は前回どれだけ
+持ったかも分かります。
+
+再起動後の自動起動: **[docs/AUTOSTART.md](docs/AUTOSTART.md)**（DPAPI で保護された Windows タスク、systemd、Termux:Boot）。
 
 ## セキュリティ
 
