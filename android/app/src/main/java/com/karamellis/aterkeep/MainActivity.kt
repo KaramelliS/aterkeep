@@ -107,22 +107,32 @@ class MainActivity : AppCompatActivity() {
      * girebiliyor). WebView'i hemen yuklemek ERR_CONNECTION_REFUSED gosterirdi.
      */
     private fun waitForPanel(attempt: Int) {
-        if (portOpen()) {
-            gate.visibility = View.GONE
-            web.visibility = View.VISIBLE
-            web.loadUrl(Daemon.PANEL_URL)
-            return
-        }
-        // ~60 saniye (120 x 500ms). Bundan sonrasi gercekten bir hatadir.
-        if (attempt > 120) {
-            status.text = getString(R.string.panel_failed) + "\n\n" + tailLog()
-            return
-        }
-        val last = DaemonService.lastLine
-        if (last.isNotBlank()) status.text = last
-        handler.postDelayed({ waitForPanel(attempt + 1) }, 500)
+        // Soket kontrolu ARKA THREAD'DE olmak ZORUNDA. Ana thread'de yapmak
+        // NetworkOnMainThreadException atiyor (hedef loopback olsa bile) ve
+        // asagidaki genis `catch` onu yutup her seferinde "kapali" dondurerek
+        // paneli HIC acmiyordu. Gercek cihazda goruldu; kendini gizleyen bir hata.
+        Thread {
+            val open = portOpen()
+            handler.post {
+                if (open) {
+                    gate.visibility = View.GONE
+                    web.visibility = View.VISIBLE
+                    web.loadUrl(Daemon.PANEL_URL)
+                    return@post
+                }
+                // ~60 saniye (120 x 500ms). Bundan sonrasi gercekten bir hatadir.
+                if (attempt > 120) {
+                    status.text = getString(R.string.panel_failed) + "\n\n" + tailLog()
+                    return@post
+                }
+                val last = DaemonService.lastLine
+                if (last.isNotBlank()) status.text = last
+                handler.postDelayed({ waitForPanel(attempt + 1) }, 500)
+            }
+        }.start()
     }
 
+    /** Yalnizca arka thread'den cagrilmali (bkz. waitForPanel). */
     private fun portOpen(): Boolean = try {
         Socket().use {
             it.connect(InetSocketAddress("127.0.0.1", Daemon.PANEL_PORT), 300)
