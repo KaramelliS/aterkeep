@@ -799,7 +799,7 @@ fn parse_cookies(raw: &str) -> Vec<Cookie> {
 /// `password`: yeniden baslayan surece parolayi ATERKEEP_KEY ile aktarir.
 /// Anahtar diskte tutulmadigi icin cocuk surec oturumu baska turlu acamaz.
 /// Parola sadece cocugun ortaminda kalir, diske hic yazilmaz.
-fn self_restart(password: Option<&str>) {
+pub fn self_restart(password: Option<&str>) {
     let exe = std::env::current_exe().ok();
     let args: Vec<String> = std::env::args().skip(1).collect();
     if let Some(exe) = exe {
@@ -883,9 +883,8 @@ async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
         .map(|s| s.trim().to_string())
         .filter(|s| !s.is_empty())
         .unwrap_or(split_sec);
-    if token.is_empty() && cookies.is_empty() {
-        return Json(json!({ "ok": false, "error": "token veya cookie gerekli" }));
-    }
+    // Not: girdi dogrulamasi asagida, oturum yolu secildikten sonra yapiliyor —
+    // hesapla giris yapan kullanicinin token/cookie vermesi gerekmiyor.
 
     // Panel parolasi: hem paneli korur hem oturumu sifreler. Anahtar diske
     // yazilmadigi icin bu parola olmadan kurulum tamamlanamaz.
@@ -933,18 +932,76 @@ async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
         Ok(s) => s,
         Err(e) => return Json(json!({ "ok": false, "error": format!("strings: {e}") })),
     };
-    // server_id: ATERNOS_SERVER cookie'sinden tespit et, yoksa body'den al
-    let sid = cookies
-        .iter()
-        .find(|c| c.name == strings.c_server)
-        .map(|c| c.value.clone())
-        .unwrap_or(server_id);
-    let mut sess = Session {
-        token,
-        sec,
-        cookies,
-        server_id: sid,
-        server_addr: None,
+
+    // --- OTURUM: iki yol ---
+    // 1) Aternos hesabi (varsayilan): cerezi biz uretiriz. Kullanici DevTools
+    //    acmaz ve cerez 30 gunde dolunca daemon kendi yeniler.
+    // 2) Cerez yapistirma (yedek): 2FA'li hesaplar ve captcha cikan durumlar
+    //    icin eski akis duruyor.
+    let a_user = body
+        .get("aternos_user")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .trim()
+        .to_string();
+    let a_pass = body
+        .get("aternos_pass")
+        .and_then(|v| v.as_str())
+        .unwrap_or("")
+        .to_string();
+
+    let mut sess = if !a_user.is_empty() && !a_pass.is_empty() {
+        let want_sid = if server_id.is_empty() {
+            None
+        } else {
+            Some(server_id.clone())
+        };
+        let mut s = match aterkeep_core::login(&a_user, &a_pass, want_sid.clone()).await {
+            Ok(s) => s,
+            Err(e) => return Json(json!({ "ok": false, "error": e.to_string() })),
+        };
+        // Hesapta birden fazla sunucu varsa ve kullanici secmediyse SORALIM.
+        // "ilkini al" varsayimi sessizce yanlis sunucuyu yonetmeye yol acardi.
+        if want_sid.is_none() {
+            if let Ok(c) = aterkeep_core::new_client(s.clone()) {
+                if let Ok(list) = aterkeep_core::list_servers(&c.cookie_hdr()).await {
+                    if list.len() > 1 {
+                        return Json(json!({
+                            "ok": false,
+                            "need_server": list.iter()
+                                .map(|(id, name)| json!({ "id": id, "name": name }))
+                                .collect::<Vec<_>>()
+                        }));
+                    }
+                }
+            }
+        }
+        // Otomatik yenileme icin sakla (session.enc sifreli — bkz. Session).
+        s.username = Some(a_user);
+        s.password = Some(a_pass);
+        s
+    } else {
+        if cookies.is_empty() {
+            return Json(json!({
+                "ok": false,
+                "error": "Aternos hesap bilgileri ya da cerezler gerekli"
+            }));
+        }
+        // server_id: ATERNOS_SERVER cookie'sinden tespit et, yoksa body'den al
+        let sid = cookies
+            .iter()
+            .find(|c| c.name == strings.c_server)
+            .map(|c| c.value.clone())
+            .unwrap_or(server_id);
+        Session {
+            token,
+            sec,
+            cookies,
+            server_id: sid,
+            server_addr: None,
+            username: None,
+            password: None,
+        }
     };
     // adres tespiti (best-effort): yeni client kur, /server/ sayfasindan adresi cek.
     if let Ok(c) = aterkeep_core::new_client(sess.clone()) {

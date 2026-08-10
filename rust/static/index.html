@@ -85,6 +85,30 @@
         <div class="setup-n">3</div>
         <div class="setup-body">
           <h3 data-i18n="setup_s3_title">Aternos session</h3>
+
+          <!-- Iki yol: hesapla giris (varsayilan) ve cerez yapistirma (yedek).
+               Hesapla girince cerezi aterkeep uretir ve 30 gunde bir kendisi
+               yeniler; yapistirma yalnizca 2FA/captcha durumlari icin. -->
+          <div class="segmented" role="tablist">
+            <button type="button" class="seg active" id="modeAccount" data-i18n="setup_mode_account">Aternos account</button>
+            <button type="button" class="seg" id="modeCookie" data-i18n="setup_mode_cookie">Paste cookies</button>
+          </div>
+
+          <div id="paneAccount">
+            <p class="muted" data-i18n="setup_acc_desc">aterkeep signs in for you and keeps the session fresh by itself.</p>
+            <div class="cols">
+              <label class="field"><span class="label" data-i18n="setup_acc_user">Aternos username or e-mail</span><input id="setupAccUser" class="input" type="text" autocomplete="username"/></label>
+              <label class="field"><span class="label" data-i18n="setup_acc_pass">Aternos password</span><input id="setupAccPass" class="input" type="password" autocomplete="current-password"/></label>
+            </div>
+            <label class="field" id="serverPickWrap" hidden>
+              <span class="label" data-i18n="setup_pick_server">Pick the server to keep alive:</span>
+              <select id="setupServer" class="input"></select>
+            </label>
+            <div class="notice notice-warn" data-i18n-html="setup_acc_note">Stored inside <code>session.enc</code>, encrypted with your panel password.</div>
+            <p class="muted" data-i18n-html="setup_acc_2fa">Two-factor accounts cannot use this; switch to <b>Paste cookies</b>.</p>
+          </div>
+
+          <div id="paneCookie" hidden>
           <ol class="steps">
             <li data-i18n-html="setup_step1">Open <b>aternos.org</b>, sign in, and open your server panel</li>
             <li data-i18n-html="setup_step2"><b>F12</b> → <b>Network</b> → <b>F5</b></li>
@@ -107,6 +131,7 @@
               <p data-i18n-html="setup_help_2"><b>No server ID needed</b> — it is detected from the <code>ATERNOS_SERVER</code> value inside the cookies you paste.</p>
             </div>
           </details>
+          </div>
         </div>
       </div>
     </div>

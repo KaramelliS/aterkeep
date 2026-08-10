@@ -112,6 +112,10 @@ fn cmd_import(json_path: &str) -> Result<(), String> {
             .get("server_addr")
             .and_then(|t| t.as_str())
             .map(|s| s.to_string()),
+        // Ice aktarma disaridan gelen bir oturum dosyasidir; hesap bilgisi
+        // tasimaz. Otomatik yenileme icin panelden kurulum gerekir.
+        username: None,
+        password: None,
     };
     // server_id fallback: ATERNOS_SERVER cookie
     let strings = aterkeep_core::Strings::decrypt_all()?;
@@ -191,6 +195,10 @@ async fn run_wizard() -> Result<(), String> {
         cookies,
         server_id,
         server_addr: None,
+        // CLI sihirbazi cerez yapistirmaya dayanir; otomatik giris panel
+        // kurulumundan gecer.
+        username: None,
+        password: None,
     };
 
     // server_id fallback: ATERNOS_SERVER cookie'sinden turet
@@ -278,7 +286,7 @@ async fn main() {
         }
     };
 
-    let (sess, _key) = match load_session(&cfg, &password) {
+    let (sess, session_key_val) = match load_session(&cfg, &password) {
         Ok(x) => x,
         Err(e) => {
             eprintln!("session yuklenemedi: {e}");
@@ -386,6 +394,10 @@ async fn main() {
         let state = state.clone();
         let watch_ctx = ctx.clone();
         let tx = tx.clone();
+        // Oturumu yeniden sifrelemek icin anahtar, yeniden baslatirken cocuk
+        // surece aktarmak icin panel parolasi gerekiyor.
+        let session_key = Some(session_key_val);
+        let panel_password = Some(password.clone());
         tokio::spawn(async move {
             let mut was_expired = false;
             loop {
@@ -394,21 +406,94 @@ async fn main() {
                 // Yalnizca GECIS aninda yaz: her 20 saniyede bir config'e
                 // dokunmanin anlami yok.
                 if expired && !was_expired {
-                    let mut cfg = watch_ctx.cfg.lock().await;
-                    if let Some(started) = cfg.session_started {
-                        let lifetime = web::now_unix().saturating_sub(started);
-                        cfg.last_session_lifetime = Some(lifetime);
-                        let _ = cfg.save();
-                        aterkeep_core::log(
+                    {
+                        let mut cfg = watch_ctx.cfg.lock().await;
+                        if let Some(started) = cfg.session_started {
+                            let lifetime = web::now_unix().saturating_sub(started);
+                            cfg.last_session_lifetime = Some(lifetime);
+                            let _ = cfg.save();
+                            aterkeep_core::log(
+                                &tx,
+                                "warn",
+                                format!(
+                                    "oturum {} gun {} saat dayandi",
+                                    lifetime / 86_400,
+                                    (lifetime % 86_400) / 3_600
+                                ),
+                            );
+                        }
+                    }
+                    // Hesap bilgileri saklanmissa oturumu KENDIMIZ yenileriz.
+                    // Kullanicinin 30 gunde bir DevTools acip cerez kopyalamasi
+                    // gerekmez — urunun asil vaadi bu.
+                    let creds = {
+                        let s = watch_ctx.client.session.clone();
+                        s.username.zip(s.password)
+                    };
+                    match creds {
+                        Some((u, p)) => {
+                            aterkeep_core::log(
+                                &tx,
+                                "sys",
+                                "cerezler doldu — hesapla yeniden giris yapiliyor".into(),
+                            );
+                            let sid = watch_ctx.client.session.server_id.clone();
+                            match aterkeep_core::login(&u, &p, Some(sid)).await {
+                                Ok(mut fresh) => {
+                                    fresh.username = Some(u);
+                                    fresh.password = Some(p);
+                                    match session_key {
+                                        Some(k) => {
+                                            if let Err(e) = fresh
+                                                .save_encrypted(&config::session_path(), &k)
+                                            {
+                                                aterkeep_core::log(
+                                                    &tx,
+                                                    "err",
+                                                    format!("yeni oturum yazilamadi: {e}"),
+                                                );
+                                            } else {
+                                                let mut cfg = watch_ctx.cfg.lock().await;
+                                                cfg.session_started = Some(web::now_unix());
+                                                let _ = cfg.save();
+                                                aterkeep_core::log(
+                                                    &tx,
+                                                    "ok",
+                                                    "yeni oturum alindi — daemon yeniden basliyor"
+                                                        .into(),
+                                                );
+                                                // Client'in oturumu process omru
+                                                // boyunca sabit; taze cerezle
+                                                // devam etmenin en basit ve en
+                                                // az riskli yolu yeniden baslamak.
+                                                tokio::time::sleep(
+                                                    std::time::Duration::from_millis(500),
+                                                )
+                                                .await;
+                                                web::self_restart(panel_password.as_deref());
+                                            }
+                                        }
+                                        None => aterkeep_core::log(
+                                            &tx,
+                                            "err",
+                                            "oturum anahtari yok — otomatik yenileme yapilamadi"
+                                                .into(),
+                                        ),
+                                    }
+                                }
+                                Err(e) => aterkeep_core::log(
+                                    &tx,
+                                    "err",
+                                    format!("otomatik giris basarisiz: {e}"),
+                                ),
+                            }
+                        }
+                        None => aterkeep_core::log(
                             &tx,
                             "warn",
-                            format!(
-                                "oturum {} gun {} saat dayandi (cerezler {} tarihinde girilmisti)",
-                                lifetime / 86_400,
-                                (lifetime % 86_400) / 3_600,
-                                started
-                            ),
-                        );
+                            "hesap bilgisi saklanmamis — cerezleri panelden yenilemen gerekiyor"
+                                .into(),
+                        ),
                     }
                 }
                 was_expired = expired;

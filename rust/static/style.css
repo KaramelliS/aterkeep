@@ -391,3 +391,14 @@ footer {
    "ne yapmaliyim?"a tek adimda goturur. */
 #sessionBanner { display: flex; align-items: center; gap: 12px; justify-content: space-between; }
 #sessionBanner .btn { flex: none; }
+
+/* Kurulumdaki iki yol arasinda gecis. Varsayilan (hesapla giris) once gelir;
+   cerez yapistirma yalnizca 2FA/captcha durumlari icin bir yedek. */
+.segmented { display: inline-flex; gap: 2px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--r); padding: 2px; margin-bottom: 12px; }
+.seg {
+  appearance: none; border: 0; background: transparent; color: var(--fg-dim);
+  font: inherit; font-size: 12.5px; font-weight: 500;
+  padding: 6px 12px; border-radius: 4px; cursor: pointer;
+}
+.seg:hover { color: var(--fg); }
+.seg.active { background: var(--bg); color: var(--fg); }

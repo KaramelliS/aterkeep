@@ -615,9 +615,21 @@ async function submitLogin(ev) {
   $("loginPassword").select();
 }
 
+// Kurulumun iki yolu. Varsayilan hesapla giris: kullanici DevTools acmaz ve
+// cerez 30 gunde dolunca daemon kendi yeniler. Yapistirma yolu 2FA/captcha
+// durumlari icin duruyor.
+let setupMode = "account";
+function selectMode(mode) {
+  setupMode = mode;
+  $("modeAccount").classList.toggle("active", mode === "account");
+  $("modeCookie").classList.toggle("active", mode === "cookie");
+  $("paneAccount").hidden = mode !== "account";
+  $("paneCookie").hidden = mode !== "cookie";
+}
+$("modeAccount").addEventListener("click", () => selectMode("account"));
+$("modeCookie").addEventListener("click", () => selectMode("cookie"));
+
 async function submitSetup() {
-  const cookie = $("setupCookie").value.trim();
-  const token = $("setupToken").value.trim();
   const password = $("setupPassword").value;
   const password2 = $("setupPassword2").value;
   const lang = $("setupLang").value;
@@ -628,9 +640,26 @@ async function submitSetup() {
   };
   if (password.length < 4) return fail("setup_err_pw_short");
   if (password !== password2) return fail("setup_err_pw_match");
-  if (!cookie) return fail("setup_err_cookie_empty");
-  if (!cookie.includes("ATERNOS_SESSION")) return fail("setup_err_cookie_session");
-  if (!token) return fail("setup_err_token");
+
+  const payload = { password, lang };
+  if (setupMode === "account") {
+    const u = $("setupAccUser").value.trim();
+    const p = $("setupAccPass").value;
+    if (!u || !p) return fail("setup_err_account");
+    payload.aternos_user = u;
+    payload.aternos_pass = p;
+    // Sunucu secimi yalnizca backend birden fazla sunucu bildirdiyse gorunur.
+    const picked = $("setupServer").value;
+    if (picked) payload.server_id = picked;
+  } else {
+    const cookie = $("setupCookie").value.trim();
+    const token = $("setupToken").value.trim();
+    if (!cookie) return fail("setup_err_cookie_empty");
+    if (!cookie.includes("ATERNOS_SESSION")) return fail("setup_err_cookie_session");
+    if (!token) return fail("setup_err_token");
+    payload.cookie = cookie;
+    payload.token = token;
+  }
 
   st.textContent = t("setup_busy");
   st.className = "setup-status";
@@ -639,9 +668,26 @@ async function submitSetup() {
     const r = await fetch("/api/setup", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ cookie, token, password, lang }),
+      body: JSON.stringify(payload),
     });
     const j = await r.json();
+    // Hesapta birden fazla sunucu varsa backend secim ister — tahmin edip
+    // yanlis sunucuyu yonetmektense soruyoruz.
+    if (j.need_server) {
+      const sel = $("setupServer");
+      sel.innerHTML = "";
+      j.need_server.forEach((s) => {
+        const o = document.createElement("option");
+        o.value = s.id;
+        o.textContent = s.name;
+        sel.appendChild(o);
+      });
+      $("serverPickWrap").hidden = false;
+      st.textContent = t("setup_pick_server");
+      st.className = "setup-status";
+      $("setupSubmit").disabled = false;
+      return;
+    }
     if (j.ok) {
       st.textContent = "✓ " + (j.msg || t("setup_ok"));
       st.className = "setup-status ok";
