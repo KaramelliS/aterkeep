@@ -126,19 +126,30 @@ jobs:
           test -n "$path"
           echo "path=$path" >> "$GITHUB_OUTPUT"
           ls -la "$path"
-          # Binary'ler APK'ya SIKISTIRILMAMIS ("Stored") girmis mi?
-          # Sikistirilmis girerlerse nativeLibraryDir'e ACILMAZLAR ve exec
-          # edilecek dosya olmaz — uygulama kurulur, acilir, hicbir sey yapmaz.
-          # Sessiz basarisizlik olacagi icin varligini degil, YONTEMINI dogrula.
-          # (useLegacyPackaging=true bunu saglar; bu kontrol onun bozulmadigini
-          # ispatlar.)
+          # Iki binary APK'da var mi?
           unzip -v "$path" | grep -E 'libaterkeep\.so|libcurlx\.so'
-          for lib in libaterkeep.so libcurlx.so; do
-            if ! unzip -v "$path" | grep "$lib" | grep -qw Stored; then
-              echo "HATA: $lib APK icinde sikistirilmis — nativeLibraryDir'e acilmaz" >&2
-              exit 1
-            fi
-          done
+          unzip -l "$path" | grep -q 'lib/arm64-v8a/libaterkeep.so'
+          unzip -l "$path" | grep -q 'lib/arm64-v8a/libcurlx.so'
+
+          # ASIL KONTROL: extractNativeLibs. Bu binary'ler exec edilecek, yani
+          # diskte GERCEK DOSYA olarak durmalari sart; Android bunu yalnizca
+          # nativeLibraryDir'e acilan dosyalar icin yapiyor.
+          #
+          # DIKKAT — iliski sezgiye ters: sikistirma durumu dogru gostergedir
+          # ama tersinden. useLegacyPackaging=true => extractNativeLibs=true =>
+          # .so'lar APK icinde SIKISTIRILMIS durur ve kurulumda diske ACILIR
+          # (istedigimiz bu). useLegacyPackaging=false => sikistirilmamis
+          # ("Stored"), hizalanmis ve APK icinden dogrudan maplenir, diske HIC
+          # acilmaz. Bu yuzden "Stored bekle" diye bir kontrol YAZMA: dogru
+          # yapilandirmayi reddeder.
+          mm=$(find android/app/build/intermediates -path '*merged_manifest*' -name AndroidManifest.xml | head -1)
+          echo "merged manifest: $mm"
+          grep -o 'extractNativeLibs="[a-z]*"' "$mm" || echo "(nitelik yok — platform varsayilani true)"
+          if grep -q 'extractNativeLibs="false"' "$mm"; then
+            echo "HATA: extractNativeLibs=false — binary'ler diske acilmaz, exec edilemez" >&2
+            exit 1
+          fi
+
           # cacert.pem assets'te olmali; yoksa her TLS dogrulamasi cihazda patlar.
           unzip -l "$path" | grep -q 'assets/cacert.pem'
 

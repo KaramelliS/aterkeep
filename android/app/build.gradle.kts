@@ -62,9 +62,12 @@ android {
             // ZORUNLU. Daemon ve curl birer .so degil, CALISTIRILABILIR ELF.
             // Android 10+ uygulama veri dizininde exec'i yasakliyor (W^X);
             // calistirilabilir tek yer, APK'dan diske acilan nativeLibraryDir.
-            // useLegacyPackaging=false (AGP 8 varsayilani) .so'lari APK icinde
-            // sikistirilmis birakir ve oraya HIC acmaz — o zaman exec edilecek
-            // bir dosya olmaz. true => manifest'te extractNativeLibs="true".
+            //
+            // true  => extractNativeLibs="true": .so'lar APK icinde sikistirilmis
+            //          durur ve kurulumda nativeLibraryDir'e ACILIR. Bize bu lazim.
+            // false => (AGP 8 varsayilani) sikistirilmamis/hizalanmis tutulur ve
+            //          APK icinden dogrudan maplenir, diske HIC acilmaz — o zaman
+            //          exec edilecek bir dosya olmaz.
             useLegacyPackaging = true
         }
     }
