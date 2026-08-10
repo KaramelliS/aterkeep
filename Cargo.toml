@@ -3,7 +3,7 @@ members = ["rust"]
 resolver = "2"
 
 [workspace.package]
-version = "1.1.0"
+version = "1.2.0"
 edition = "2021"
 # Ticari source-available lisans (bkz. LICENSE). SPDX'te karsiligi yok — bu yuzden
 # license yerine license-file kullaniliyor. MIT DEGIL: yeniden dagitim/satis yasak.

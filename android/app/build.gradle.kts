@@ -23,8 +23,10 @@ android {
         applicationId = "com.karamellis.aterkeep"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.1.0"
+        // versionCode her yayinda ARTMALI: Android daha kucuk bir versionCode'u
+        // "dusurme" sayip kurulumu reddediyor.
+        versionCode = 2
+        versionName = "1.2.0"
 
         // Her ABI icin daemon + statik curl tasiniyor (CI ucunu de derliyor).
         // Filtre acikca yaziliyor ki jniLibs'e yanlislikla girmis, karsiligi
