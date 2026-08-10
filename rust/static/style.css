@@ -8,9 +8,17 @@
   --line:     #232830;
   --line-2:   #1b2027;
 
+  /* Metin rampasi. Olculdu (WCAG, --panel uzerinde):
+       --fg      15.24:1
+       --fg-dim   7.56:1
+       --fg-mute  5.53:1
+     --fg-mute onceden #6b7480 idi = 3.87:1, yani AA'nin (4.5) ALTINDA — ve tam
+     da en kucuk metinlerde kullaniliyor (metric-label 10.5px, muted 12.5px,
+     kv dt, saat). En zor okunan yerde en zayif kontrast. Ton ayni birakilip
+     yalnizca aciklik yukseltildi; hiyerarsi korunuyor. */
   --fg:       #dfe4ec;
   --fg-dim:   #98a2b3;
-  --fg-mute:  #6b7480;
+  --fg-mute:  #868e99;
 
   --ok:       #27c46b;
   --ok-dim:   #1a8f4d;
@@ -35,6 +43,15 @@ html, body {
   -webkit-font-smoothing: antialiased;
 }
 code, .mono, pre, .grid input { font-family: var(--mono); }
+
+/* Surekli degisen sayilar SABIT genislikte olmali. Orantili rakamlarda "1" ile
+   "8" ayni genislikte degildir; TPS, RAM, oyuncu sayisi, saat ve kuyruk yuzdesi
+   her yenilemede zipliyor, satirlar oynuyordu. Canli bir panelde bunun
+   maliyeti dogrudan gorunur. */
+.mono, .metric-value, .clock, .queue-pct, .queue-top, .badge, .pill, .stream .time {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum" 1;
+}
 a { color: var(--ok); }
 
 /* ================= yerlesim ================= */
