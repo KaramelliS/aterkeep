@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <!-- specialUse tipi icin ayri izin (API 34+). -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <!-- Ekran kapaliyken 30 saniyelik yoklamanin surmesi icin partial wake lock. -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <!-- Android 13+: bildirim gostermek izin ister; foreground service bildirimi
+         olmadan servis kullaniciya gorunmez ve sistem onu daha kolay oldurur. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+    <!-- Pil optimizasyonundan muafiyet KULLANICIDAN istenir (otomatik verilmez).
+         Muafiyet olmadan Doze, wake lock'a ragmen surece CPU vermeyi kisiyor. -->
+    <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Aterkeep"
+        android:networkSecurityConfig="@xml/network_security_config"
+        android:extractNativeLibs="true"
+        tools:targetApi="34">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|keyboardHidden"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- foregroundServiceType=specialUse, BILEREK.
+             dataSync DEGIL: Android 15'te dataSync 24 saatte TOPLAM 6 saatle
+             sinirli (sure bitince sistem onTimeout cagirip servisi durduruyor)
+             ve ayrica BOOT_COMPLETED'dan baslatilmasi yasak. Ikisi de 7/24
+             calismasi gereken bir keep-alive icin olumcul. specialUse sure
+             sinirina tabi degil (sinir yalnizca dataSync ve mediaProcessing) ve
+             boot'tan baslatilabiliyor. -->
+        <service
+            android:name=".DaemonService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse"
+            android:stopWithTask="false">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Keeps a user-owned Minecraft server session alive by polling it on a fixed interval; must run continuously and is user-initiated and user-visible." />
+        </service>
+
+        <receiver
+            android:name=".BootReceiver"
+            android:exported="true"
+            android:enabled="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+    </application>
+</manifest>

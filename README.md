@@ -54,18 +54,22 @@
 aterkeep is a single self-contained binary — one file, no runtime to install.
 It does shell out to **`curl`**, which ships with Windows 10+, macOS and most
 Linux distributions (`pkg install curl` on Termux). That is the only external
-requirement.
+requirement. The Android APK carries its own static curl, so there is nothing to
+install there either.
+
+(The optional anti-idle bot is the exception to "no runtime": it is a Node.js
+program and needs Node installed. Everything else works without it.)
 
 | Platform | Notes |
 |---|---|
 | **Windows** | 10/11 — `aterkeep.exe`, double-click or run from PowerShell/cmd. |
 | **Linux** | x86_64 — `./aterkeep`. |
 | **macOS** | Apple Silicon — `./aterkeep`. |
-| **Android** | Via [Termux](docs/TERMUX.md) — builds from source only; no prebuilt binary. |
+| **Android** | arm64 — install the [APK](docs/ANDROID.md); it runs the daemon in a foreground service. A [Termux](docs/TERMUX.md) route exists for shell users. |
 
 ## Requirements
 
-- **Windows, Linux, macOS, or Android** (the latter via Termux — see the [Termux guide](docs/TERMUX.md))
+- **Windows, Linux, macOS, or Android** (Android: the [APK](docs/ANDROID.md), or [Termux](docs/TERMUX.md) if you want a shell)
 - Rust toolchain (only needed to build from source; release binaries ship without it)
 
 ## Install
@@ -79,15 +83,22 @@ Download the right binary for your OS from the [Releases](../../releases) page:
 | Windows 10/11 | `aterkeep-windows.exe` |
 | Linux x86_64 | `aterkeep-linux-amd64` |
 | macOS (Apple Silicon) | `aterkeep-macos-arm64` |
+| Android arm64 | `aterkeep-android-arm64.apk` — install and run, no shell needed |
+| Android arm64 (Termux) | `aterkeep-android-arm64` — the bare daemon binary |
 | — | `aterkeep-extras.zip` — the anti-idle bot, autostart installers and docs |
 
 **Download `aterkeep-extras.zip` too** if you want the bot or autostart, and
 unpack it next to the binary. The daemon alone cannot run the bot: it needs the
 `bot/` folder from that archive.
 
-Linux aarch64, macOS Intel and Android are **not** prebuilt — building them
-needs access to the private engine crate, so they are unavailable to buyers
-today. Do not plan around them.
+Linux aarch64 and macOS Intel are **not** prebuilt — building them needs access
+to the private engine crate, so they are unavailable to buyers today. Do not plan
+around them.
+
+The Android APK does not run the anti-idle bot (it is a Node.js program and Node
+cannot ship inside an APK), so on Android an emptied server gets restarted rather
+than kept up continuously. [docs/ANDROID.md](docs/ANDROID.md) spells out exactly
+what that changes.
 
 On Linux/macOS/Android, make it executable after downloading:
 
@@ -303,7 +314,7 @@ machine (or malware running as your user) can read it. Keep the host clean.
 | Should start on boot | See [docs/AUTOSTART.md](docs/AUTOSTART.md) — scheduled task (Windows, DPAPI-protected), systemd unit (Linux), Termux:Boot (Android), each with its security tradeoff spelled out. |
 | Panel says the Aternos session expired | The cookies aged out — this is not a server fault. Press **Refresh cookies** in the banner and paste a fresh `cookie:` header. |
 | Port 4041 busy | A previous instance is still running. Kill it (`pkill aterkeep` / Task Manager), or change `port` in `config/aterkeep.json`. |
-| Running on Android? | See the dedicated [Termux guide](docs/TERMUX.md). |
+| Running on Android? | Install the [APK](docs/ANDROID.md). Prefer a shell? [Termux guide](docs/TERMUX.md). |
 
 ## Anti-Idle Bot (Opsiyonel)
 

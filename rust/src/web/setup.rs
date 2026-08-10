@@ -52,18 +52,50 @@ pub(super) async fn api_i18n_public(Path(lang): Path<String>) -> impl IntoRespon
 /// `password`: yeniden baslayan surece parolayi ATERKEEP_KEY ile aktarir.
 /// Anahtar diskte tutulmadigi icin cocuk surec oturumu baska turlu acamaz.
 /// Parola sadece cocugun ortaminda kalir, diske hic yazilmaz.
+///
+/// UNIX'TE spawn+exit DEGIL, exec KULLANILIR. spawn+exit ucu birden bozuyordu:
+///
+///   1. Bir gozetmen (Android foreground service, systemd, launchd) bu process'i
+///      izliyorsa, exit(0) ona "oldu" der ve YENI bir kopya baslatir. Ama
+///      spawn edilen torun hala yasiyor ve 4041'i tutuyor; gozetmenin actigi
+///      kopya bind edemeyip panic ediyor (bkz. main.rs: "{addr} dinlenemiyor").
+///      Yani kurulum sonrasi kendini onaran degil, kendini kiran bir dongu.
+///   2. Torun, gozetmenin surec agacindan KOPUYOR. Android'de bu olumcul:
+///      izlenmeyen bir cocuk surec, phantom-process avcisinin tam hedefi.
+///   3. Iki process kisa bir an ayni config/ uzerinde birlikte yasiyor.
+///
+/// exec() surec goruntusunu YERINDE degistirir: PID ayni kalir, gozetmenin
+/// tuttugu handle gecerli kalir, parola yeni goruntunun ortaminda tasinir ve
+/// diske hicbir sey yazilmaz. Yalnizca hata durumunda geri doner.
+///
+/// Windows'ta execve yok; orada eski spawn+exit davranisi korunuyor (Windows'ta
+/// process'i gozeten bir servis katmani da kullanmiyoruz).
 pub fn self_restart(password: Option<&str>) {
     let exe = std::env::current_exe().ok();
     let args: Vec<String> = std::env::args().skip(1).collect();
+    println!("[setup] process yeniden baslatiliyor");
     if let Some(exe) = exe {
         let mut cmd = std::process::Command::new(&exe);
         cmd.args(&args);
         if let Some(p) = password {
             cmd.env("ATERKEEP_KEY", p);
         }
-        let _ = cmd.spawn();
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::CommandExt;
+            // Basarili olursa buradan DONMEZ: bu process artik yeni goruntu.
+            let err = cmd.exec();
+            // Buraya dusuyorsak exec basarisiz oldu (exe silinmis, izin yok...).
+            // Sessizce exit(0) etmek gozetmene "duzgun kapandim" der ve gercek
+            // sebep kaybolur; hatayi soyleyip basarisizlik koduyla cikiyoruz.
+            eprintln!("[setup] exec basarisiz: {err} — gozetmen yeniden baslatmali");
+            std::process::exit(1);
+        }
+        #[cfg(not(unix))]
+        {
+            let _ = cmd.spawn();
+        }
     }
-    println!("[setup] process yeniden baslatiliyor");
     std::process::exit(0);
 }
 
