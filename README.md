@@ -23,6 +23,17 @@
 
 ---
 
+**[▶ Watch the 30-second overview](promo/video/aterkeep-en.mp4)** — also in
+[Türkçe](promo/video/aterkeep-tr.mp4), [Deutsch](promo/video/aterkeep-de.mp4),
+[Français](promo/video/aterkeep-fr.mp4), [Español](promo/video/aterkeep-es.mp4),
+[Italiano](promo/video/aterkeep-it.mp4), [Português](promo/video/aterkeep-pt.mp4),
+[Русский](promo/video/aterkeep-ru.mp4), [العربية](promo/video/aterkeep-ar.mp4),
+[中文](promo/video/aterkeep-zh.mp4), [日本語](promo/video/aterkeep-ja.mp4),
+[한국어](promo/video/aterkeep-ko.mp4), [Nederlands](promo/video/aterkeep-nl.mp4),
+[Polski](promo/video/aterkeep-pl.mp4).
+
+---
+
 ## Features
 
 - **Automatic queue confirmation** — when your turn comes up Aternos opens a ~30 second window and drops you to the back of the queue if nobody answers. This is the step that makes unattended 24/7 possible, and the reason keep-alive scripts sit in the queue forever.

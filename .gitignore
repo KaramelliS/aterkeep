@@ -49,3 +49,6 @@ rust/probe_*.py
 rust/check_*.py
 rust/test_*.py
 watcher/
+
+# Tanitim: gecici kare onizlemeleri (videolar KOMMIT EDILIR)
+promo/_check/
