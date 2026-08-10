@@ -60,6 +60,10 @@ pub struct Auth {
     pub auth_hash: String,
 }
 
+fn default_true() -> bool {
+    true
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct AppConfig {
     /// Panel arayuz dili (kurulumda secilir). translations.rs'teki kodlardan biri.
@@ -79,6 +83,13 @@ pub struct AppConfig {
     // Tahmin etmek yerine olcuyoruz: cerezlerin ne zaman girildigini yaziyoruz,
     // ne zaman gecersizlestigini zaten tespit ediyoruz (bkz. ERR_SESSION_EXPIRED),
     // aradaki fark cevabin ta kendisi.
+    /// Oto-baslat acik mi? KALICI olmali: kullanici "Durdur" deyip sunucuyu
+    /// bilerek kapali biraktiginda (surum degistirmek, dunyayi yedeklemek...)
+    /// daemon'in her yeniden baslayisinda 7/24 modunun sessizce geri gelmesi,
+    /// kullanicinin acik talimatini yok saymaktir.
+    #[serde(default = "default_true")]
+    pub auto_start: bool,
+
     /// Cerezlerin kuruluma girildigi an (unix saniye).
     #[serde(default)]
     pub session_started: Option<u64>,
@@ -99,6 +110,7 @@ impl Default for AppConfig {
             port: 4041,
             bind: "127.0.0.1".into(),
             auth: None,
+            auto_start: true,
             session_started: None,
             last_session_lifetime: None,
         }
@@ -113,13 +125,29 @@ impl AppConfig {
             .unwrap_or_default()
     }
 
+    /// Config'i ATOMIK yazar: once gecici dosya, fsync, sonra rename.
+    ///
+    /// Dogrudan uzerine yazmak olumcul olabilirdi: bu dosya KDF tuzlarini
+    /// tasiyor ve yazma sirasinda bir cokme/elektrik kesintisi onlari yok
+    /// ederse `session.enc` bir daha ASLA cozulemez. rename cogu dosya
+    /// sisteminde atomiktir; ya eski ya yeni icerik kalir, yarim dosya kalmaz.
     pub fn save(&self) -> Result<(), String> {
         let path = config_path();
         if let Some(parent) = path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| e.to_string())?;
         }
         let pretty = serde_json::to_string_pretty(self).map_err(|e| e.to_string())?;
-        std::fs::write(&path, pretty).map_err(|e| e.to_string())
+        let tmp = path.with_extension("json.tmp");
+        {
+            use std::io::Write;
+            let mut f = std::fs::File::create(&tmp).map_err(|e| e.to_string())?;
+            f.write_all(pretty.as_bytes()).map_err(|e| e.to_string())?;
+            f.sync_all().map_err(|e| e.to_string())?;
+        }
+        // Windows'ta rename hedef varsa hata verir; once kaldirilir.
+        #[cfg(windows)]
+        let _ = std::fs::remove_file(&path);
+        std::fs::rename(&tmp, &path).map_err(|e| e.to_string())
     }
 
     /// Panel girisi zorunlu mu? (kurulum tamamlanmissa evet)

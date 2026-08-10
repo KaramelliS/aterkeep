@@ -1,244 +1,61 @@
+//! aterkeep — Aternos 7/24 sunucu bekcisi.
+//!
+//! Bu dosya YALNIZCA baslangici baglar: komutlari dagitir, oturumu acar,
+//! paylasilan durumu kurar, arka plan gorevlerini baslatir ve paneli dinlemeye
+//! sokar. Is mantigi modullerde:
+//!
+//!   unlock    parola alma, oturumun cozulmesi
+//!   cli       surum/yardim, `import` komutu
+//!   wizard    terminal kurulum sihirbazi
+//!   watch     oturum omru olcumu + otomatik yeniden giris
+//!   web/      HTTP katmani (kendi icinde ayrilmis)
+//!   bot       anti-idle bot sureci
+//!   config    dosya duzeni ve parola tabanli anahtar turetme
+
 mod bot;
+mod cli;
 mod config;
 mod translations;
+mod unlock;
+mod watch;
 mod web;
+mod wizard;
 
-use aterkeep_core::{run_keepalive, Cookie, LogTx, Session, SharedState, State};
+use aterkeep_core::{run_keepalive, LogTx, SharedState, State};
 use config::AppConfig;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::Mutex;
 
-/// Oturumu acacak parolayi bulur.
-///
-/// Sirasiyla: `ATERKEEP_KEY` ortam degiskeni -> interaktif terminalde sorma.
-/// Arka planda (servis/systemd) calisirken terminal olmadigi icin ortam
-/// degiskeni ZORUNLUDUR — anahtar diskte tutulmadigindan baska kaynak yok.
-fn acquire_password(cfg: &AppConfig) -> Result<String, String> {
-    if let Ok(p) = std::env::var("ATERKEEP_KEY") {
-        if !p.is_empty() {
-            return Ok(p);
-        }
-    }
-    if !std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        return Err(
-            "parola yok: ATERKEEP_KEY ortam degiskenini ayarla (arka planda calisirken sorulamaz)"
-                .into(),
-        );
-    }
-    for attempt in 0..3 {
-        let p = prompt("Panel parolasi");
-        if p.is_empty() {
-            continue;
-        }
-        if cfg.verify_password(&p) {
-            return Ok(p);
-        }
-        eprintln!("[!] parola hatali ({}/3)", attempt + 1);
-    }
-    Err("parola 3 kez hatali girildi".into())
-}
-
-fn load_session(cfg: &AppConfig, password: &str) -> Result<(Session, [u8; 32]), String> {
-    let key = cfg
-        .derive_session_key(password)
-        .ok_or("kurulum tamamlanmamis (config/aterkeep.json icinde auth yok)")?;
-    let sess = Session::load_encrypted(&config::session_path(), &key)?;
-    Ok((sess, key))
-}
-
-/// Kurulum icin parola alir ve config'e auth kaydi yazar; oturum anahtarini
-/// dondurur. Mevcut bir kurulum varsa parolayi dogrular (yeniden uretmez —
-/// yoksa eski session.enc cozulemez hale gelirdi).
-fn setup_password(cfg: &mut AppConfig) -> Result<[u8; 32], String> {
-    if cfg.auth_enabled() {
-        let p = acquire_password(cfg)?;
-        return cfg
-            .derive_session_key(&p)
-            .ok_or_else(|| "anahtar turetilemedi".into());
-    }
-    let p = match std::env::var("ATERKEEP_KEY") {
-        Ok(p) if !p.is_empty() => p,
-        _ => {
-            println!("\nPanel parolasi belirle. Bu parola hem paneli korur hem de");
-            println!("oturumunu sifreler — anahtar diske YAZILMAZ, kaybedersen oturum gider.");
-            let p = prompt("Yeni parola");
-            if p.len() < 4 {
-                return Err("parola en az 4 karakter olmali".into());
-            }
-            let again = prompt("Parola (tekrar)");
-            if p != again {
-                return Err("parolalar eslesmiyor".into());
-            }
-            p
-        }
-    };
-    let (auth, key) = config::new_auth(&p);
-    cfg.auth = Some(auth);
-    cfg.save()?;
-    Ok(key)
-}
-
-fn cmd_import(json_path: &str) -> Result<(), String> {
-    let mut cfg = AppConfig::load();
-    let key = setup_password(&mut cfg)?;
-    let raw = std::fs::read_to_string(json_path).map_err(|e| e.to_string())?;
-    let v: serde_json::Value = serde_json::from_str(&raw).map_err(|e| e.to_string())?;
-    let cookies: Vec<Cookie> = v
-        .get("cookies")
-        .and_then(|c| c.as_array())
-        .map(|arr| {
-            arr.iter()
-                .filter_map(|c| {
-                    Some(Cookie {
-                        name: c.get("name")?.as_str()?.to_string(),
-                        value: c.get("value")?.as_str()?.to_string(),
-                    })
-                })
-                .collect()
-        })
-        .unwrap_or_default();
-    let sess = Session {
-        token: v.get("token").and_then(|t| t.as_str()).unwrap_or("").to_string(),
-        sec: v.get("sec").and_then(|t| t.as_str()).unwrap_or("").to_string(),
-        cookies,
-        server_id: v
-            .get("server_id")
-            .or_else(|| v.pointer("/cookies/0/value"))
-            .and_then(|t| t.as_str())
-            .unwrap_or("")
-            .to_string(),
-        server_addr: v
-            .get("server_addr")
-            .and_then(|t| t.as_str())
-            .map(|s| s.to_string()),
-        // Ice aktarma disaridan gelen bir oturum dosyasidir; hesap bilgisi
-        // tasimaz. Otomatik yenileme icin panelden kurulum gerekir.
-        username: None,
-        password: None,
-    };
-    // server_id fallback: ATERNOS_SERVER cookie
-    let strings = aterkeep_core::Strings::decrypt_all()?;
-    let sid = sess
-        .cookies
-        .iter()
-        .find(|c| c.name == strings.c_server)
-        .map(|c| c.value.clone())
-        .unwrap_or(sess.server_id.clone());
-    let sess = Session {
-        server_id: sid,
-        ..sess
-    };
-    sess.save_encrypted(&config::session_path(), &key)?;
-    println!("{} yazildi (AES-256-GCM)", config::session_path().display());
-    Ok(())
-}
-
-fn prompt(label: &str) -> String {
-    use std::io::{self, Write};
-    print!("{label}: ");
-    io::stdout().flush().ok();
-    let mut s = String::new();
-    io::stdin().read_line(&mut s).ok();
-    s.trim().to_string()
-}
-
-fn parse_cookies(raw: &str) -> Vec<Cookie> {
-    raw.split(';')
-        .filter_map(|pair| {
-            let pair = pair.trim();
-            let (name, value) = pair.split_once('=')?;
-            let name = name.trim().to_string();
-            if name.is_empty() {
-                return None;
-            }
-            Some(Cookie {
-                name,
-                value: value.trim().to_string(),
-            })
-        })
-        .collect()
-}
-
-async fn run_wizard() -> Result<(), String> {
-    let mut cfg = AppConfig::load();
-
-    // Dil secimi — panel bu dille acilir, config'e yazilir.
-    let codes: Vec<&str> = translations::LANGS.iter().map(|(c, _)| *c).collect();
-    println!("\nDiller: {}", codes.join(", "));
-    let lang = prompt(&format!("Panel dili [{}]", cfg.lang));
-    if !lang.is_empty() && codes.contains(&lang.as_str()) {
-        cfg.lang = lang;
-    }
-
-    let key = setup_password(&mut cfg)?;
-    cfg.save()?;
-
-    println!("\naternos.org'da F12 -> Application -> Cookies / Console.");
-    let token = prompt("AJAX TOKEN (window.AJAX_TOKEN degerini yapistir)");
-    let sec = prompt("SEC (bos birakabilirsin, cookie'den turetilecek)");
-    let server_id = prompt("Server ID (ATERNOS_SERVER cookie degeri)");
-    let cookies_raw = prompt("Cookie header (tum cookie'leri yapistir: ATERNOS_SESSION=...; ...)");
-
-    let cookies = parse_cookies(&cookies_raw);
-
-    // Validasyon: token veya cookie yoksa kurulum anlamsiz — bos session.enc
-    // uretip daemon'i sahte oturumla calistirmayalim (arka planda/stdin kapaliyken
-    // prompt'lar bos doner). Web wizard akisini da bozmamak icin burada dur.
-    if token.is_empty() && cookies.is_empty() {
-        return Err("token veya cookie girilmedi — kurulum iptal".into());
-    }
-
-    let sess = Session {
-        token,
-        sec,
-        cookies,
-        server_id,
-        server_addr: None,
-        // CLI sihirbazi cerez yapistirmaya dayanir; otomatik giris panel
-        // kurulumundan gecer.
-        username: None,
-        password: None,
-    };
-
-    // server_id fallback: ATERNOS_SERVER cookie'sinden turet
-    let strings = aterkeep_core::Strings::decrypt_all()?;
-    let sid = sess
-        .cookies
-        .iter()
-        .find(|c| c.name == strings.c_server)
-        .map(|c| c.value.clone())
-        .unwrap_or_else(|| sess.server_id.clone());
-    let mut sess = Session {
-        server_id: sid,
-        ..sess
-    };
-
-    // sunucu adresini tespit et (best-effort)
-    println!("[*] sunucu adresi tespit ediliyor...");
-    match aterkeep_core::new_client(sess.clone()) {
-        Ok(c) => match c.get_server_addr().await {
-            Ok(addr) => {
-                println!("[+] sunucu adresi: {addr}");
-                sess.server_addr = Some(addr);
-            }
-            Err(e) => println!("[!] adres tespit edilemedi (panelde sonra doldurulur): {e}"),
-        },
-        Err(e) => println!("[!] adres tespit atlandi: {e}"),
-    }
-
-    sess.save_encrypted(&config::session_path(), &key)?;
-    println!(
-        "[+] {} yazildi (AES-256-GCM). aterkeep basliyor...",
-        config::session_path().display()
-    );
-    println!("[!] Bu klasoru kimseyle paylasma — sifreli de olsa oturum verisi icerir.");
-    Ok(())
-}
+use cli::cmd_import;
+use unlock::{acquire_password, load_session};
+use wizard::run_wizard;
 
 #[tokio::main]
 async fn main() {
     let args: Vec<String> = std::env::args().collect();
+    // Hangi surumun calistigini soylemenin bir yolu olmali: destek talebi
+    // gelince "hangi surum?" sorusunun cevabi bulunabilsin.
+    if let Some(a) = args.get(1) {
+        match a.as_str() {
+            "--version" | "-V" | "version" => {
+                println!("aterkeep {}", env!("CARGO_PKG_VERSION"));
+                return;
+            }
+            "--help" | "-h" | "help" => {
+                println!("aterkeep {} — Aternos 7/24 sunucu bekcisi\n", env!("CARGO_PKG_VERSION"));
+                println!("KULLANIM:");
+                println!("  aterkeep                 paneli baslat (http://127.0.0.1:4041)");
+                println!("  aterkeep import <dosya>  hazir bir session.json'u sifreleyip ice aktar");
+                println!("  aterkeep --version       surumu yazdir\n");
+                println!("ORTAM DEGISKENLERI:");
+                println!("  ATERKEEP_KEY   panel parolasi (arka planda calisirken ZORUNLU)");
+                println!("  ATERKEEP_DIR   config klasoru (varsayilan: ./config)");
+                return;
+            }
+            _ => {}
+        }
+    }
     if args.len() > 1 && args[1] == "import" {
         let path = args.get(2).map(|s| s.as_str()).unwrap_or("session.json");
         match cmd_import(path) {
@@ -314,7 +131,9 @@ async fn main() {
     let bot: bot::SharedBot = Arc::new(bot::BotManager::new(repo_root));
 
     let state: SharedState = Arc::new(Mutex::new(State {
-        auto: true,
+        // Kullanicinin son tercihi. Sabit `true` idi: her yeniden baslatma,
+        // kullanicinin bilerek kapattigi 7/24 modunu sessizce geri aciyordu.
+        auto: cfg.auto_start,
         server_state: "boot".into(),
         status_num: -1,
         last_check: 0,
@@ -353,26 +172,15 @@ async fn main() {
         auth_token: Mutex::new(None),
     });
 
-    // keepalive dongusu: status-only polling + bot entegrasyonu + extend/zombie.
-    // probe_host/port: Aternos sunucu adresi (status online iken MC handshake ile
-    // dogrulamak icin). server_addr tespit edilene kadar bos — keepalive online
-    // oldugunda adresi yeniden tespit edip probe yapar (simdilik best-effort).
-    let probe_host = {
-        let s = state.lock().await;
-        s.server_addr
-            .as_deref()
-            .and_then(|a| a.split(':').next())
-            .unwrap_or("localhost")
-            .to_string()
-    };
+    // keepalive dongusu: yalnizca durum okur; start/stop kararlarini o verir.
+    // Zombie probe hedefi ARTIK parametre degil — canli State.server_addr'dan
+    // okunuyor (bkz. core/keepalive.rs).
     tokio::spawn(run_keepalive(
         client.clone(),
         state.clone(),
         tx.clone(),
         bot.clone(),
         30,
-        probe_host.clone(),
-        25565,
     ));
 
     // WS canli akis: Aternos Hermes WebSocket'ine baglan, anlik durum/kuyruk/console
@@ -384,122 +192,14 @@ async fn main() {
         tx.clone(),
     ));
 
-    // Oturum omru olcumu. "Aternos cerezleri kac gun dayanir?" sorusunun
-    // bakilabilecek bir cevabi yok — Aternos ilan etmiyor ve pratik omur
-    // kullanicidan kullaniciya degisiyor (baska yerden giris, IP degisimi...).
-    // Cerezlerin girildigi ani kurulumda yaziyoruz; burada oldugu ani yakalayip
-    // farki kaydediyoruz. Boylece her kurulum kendi sayisini ogreniyor ve biz
-    // de zamanla gercek dagilimi.
-    {
-        let state = state.clone();
-        let watch_ctx = ctx.clone();
-        let tx = tx.clone();
-        // Oturumu yeniden sifrelemek icin anahtar, yeniden baslatirken cocuk
-        // surece aktarmak icin panel parolasi gerekiyor.
-        let session_key = Some(session_key_val);
-        let panel_password = Some(password.clone());
-        tokio::spawn(async move {
-            let mut was_expired = false;
-            loop {
-                tokio::time::sleep(std::time::Duration::from_secs(20)).await;
-                let expired = { state.lock().await.session_expired };
-                // Yalnizca GECIS aninda yaz: her 20 saniyede bir config'e
-                // dokunmanin anlami yok.
-                if expired && !was_expired {
-                    {
-                        let mut cfg = watch_ctx.cfg.lock().await;
-                        if let Some(started) = cfg.session_started {
-                            let lifetime = web::now_unix().saturating_sub(started);
-                            cfg.last_session_lifetime = Some(lifetime);
-                            let _ = cfg.save();
-                            aterkeep_core::log(
-                                &tx,
-                                "warn",
-                                format!(
-                                    "oturum {} gun {} saat dayandi",
-                                    lifetime / 86_400,
-                                    (lifetime % 86_400) / 3_600
-                                ),
-                            );
-                        }
-                    }
-                    // Hesap bilgileri saklanmissa oturumu KENDIMIZ yenileriz.
-                    // Kullanicinin 30 gunde bir DevTools acip cerez kopyalamasi
-                    // gerekmez — urunun asil vaadi bu.
-                    let creds = {
-                        let s = watch_ctx.client.session.clone();
-                        s.username.zip(s.password)
-                    };
-                    match creds {
-                        Some((u, p)) => {
-                            aterkeep_core::log(
-                                &tx,
-                                "sys",
-                                "cerezler doldu — hesapla yeniden giris yapiliyor".into(),
-                            );
-                            let sid = watch_ctx.client.session.server_id.clone();
-                            match aterkeep_core::login(&u, &p, Some(sid)).await {
-                                Ok(mut fresh) => {
-                                    fresh.username = Some(u);
-                                    fresh.password = Some(p);
-                                    match session_key {
-                                        Some(k) => {
-                                            if let Err(e) = fresh
-                                                .save_encrypted(&config::session_path(), &k)
-                                            {
-                                                aterkeep_core::log(
-                                                    &tx,
-                                                    "err",
-                                                    format!("yeni oturum yazilamadi: {e}"),
-                                                );
-                                            } else {
-                                                let mut cfg = watch_ctx.cfg.lock().await;
-                                                cfg.session_started = Some(web::now_unix());
-                                                let _ = cfg.save();
-                                                aterkeep_core::log(
-                                                    &tx,
-                                                    "ok",
-                                                    "yeni oturum alindi — daemon yeniden basliyor"
-                                                        .into(),
-                                                );
-                                                // Client'in oturumu process omru
-                                                // boyunca sabit; taze cerezle
-                                                // devam etmenin en basit ve en
-                                                // az riskli yolu yeniden baslamak.
-                                                tokio::time::sleep(
-                                                    std::time::Duration::from_millis(500),
-                                                )
-                                                .await;
-                                                web::self_restart(panel_password.as_deref());
-                                            }
-                                        }
-                                        None => aterkeep_core::log(
-                                            &tx,
-                                            "err",
-                                            "oturum anahtari yok — otomatik yenileme yapilamadi"
-                                                .into(),
-                                        ),
-                                    }
-                                }
-                                Err(e) => aterkeep_core::log(
-                                    &tx,
-                                    "err",
-                                    format!("otomatik giris basarisiz: {e}"),
-                                ),
-                            }
-                        }
-                        None => aterkeep_core::log(
-                            &tx,
-                            "warn",
-                            "hesap bilgisi saklanmamis — cerezleri panelden yenilemen gerekiyor"
-                                .into(),
-                        ),
-                    }
-                }
-                was_expired = expired;
-            }
-        });
-    }
+    // Oturum omru olcumu + otomatik yeniden giris (bkz. watch.rs).
+    watch::spawn(watch::Deps {
+        state: state.clone(),
+        ctx: ctx.clone(),
+        tx: tx.clone(),
+        session_key: session_key_val,
+        panel_password: password.clone(),
+    });
 
     let app = web::router(ctx);
     let addr = format!("{}:{}", cfg.bind, cfg.port);

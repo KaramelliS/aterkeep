@@ -34,7 +34,7 @@ pub struct BotManager {
 
 impl BotManager {
     pub fn new(repo_root: PathBuf) -> Self {
-        let config = Self::load_config(&repo_root).unwrap_or_else(BotConfig::default);
+        let config = Self::load_config(&repo_root).unwrap_or_default();
         Self {
             config: Mutex::new(config),
             child: Mutex::new(None),
@@ -73,7 +73,7 @@ impl BotManager {
     /// Patch'i mevcut config'in uzerine yaz, persist et.
     /// Eger host/port/name degisti VE bot su an calisiyorsa restart yapar.
     pub async fn update_config(&self, patch: BotConfigPatch) -> Result<(), String> {
-        let (need_restart, was_running) = {
+        let changed = {
             let mut cfg = self.config.lock().await;
             let prev = cfg.clone();
             if let Some(v) = patch.name {
@@ -95,10 +95,16 @@ impl BotManager {
                 cfg.vanish_z = v;
             }
             Self::persist_config_locked(&cfg, &self.repo_root)?;
-            let running = self.child.lock().await.is_some();
-            let changed = cfg.name != prev.name || cfg.host != prev.host || cfg.port != prev.port;
-            (changed && running, running)
+            
+            cfg.name != prev.name || cfg.host != prev.host || cfg.port != prev.port
+            // NOT: `child` kilidi BURADA ALINMAZ. Alinsaydi kilit sirasi
+            // config -> child olurdu; start() ise child -> config sirasiyla
+            // aliyor. Iki yol ayni anda calistiginda bu klasik kilit sirasi
+            // tersligi bot yoneticisini ve keepalive'i KALICI olarak
+            // kitleyebilirdi. Config kilidi burada birakiliyor.
         };
+        let was_running = self.is_running().await;
+        let need_restart = changed && was_running;
         if need_restart && was_running {
             let cfg = self.config().await;
             self.stop().await;
@@ -125,18 +131,20 @@ impl BotManager {
     /// - Zaten calisiyorsa no-op (ama host/port degisse config'i gunceller).
     /// - `node bot/index.js` cwd=repo_root, env ATERKEEP_BOT_DIR=repo_root ile spawn.
     pub async fn start(&self, host: String, port: u16) -> Result<(), String> {
-        // host/port degistiysa once config'i guncelle + persist et
-        {
+        // host/port degistiyse once config'i guncelle + persist et. Log icin
+        // gereken degerler BURADA yerel degiskenlere alinir; child kilidi
+        // altindayken config kilidini almak (child -> config) update_config'in
+        // sirasiyla (config -> child) ters duser ve kilitlenme uretir.
+        let (log_host, log_port, log_name) = {
             let mut cfg = self.config.lock().await;
-            let changed = cfg.host != host || cfg.port != port;
-            if changed {
+            if cfg.host != host || cfg.port != port {
                 cfg.host = host;
                 cfg.port = port;
                 let snapshot = cfg.clone();
-                drop(cfg);
                 Self::persist_config_locked(&snapshot, &self.repo_root)?;
             }
-        }
+            (cfg.host.clone(), cfg.port, cfg.name.clone())
+        };
 
         let mut child_guard = self.child.lock().await;
         if let Some(child) = child_guard.as_mut() {
@@ -149,13 +157,14 @@ impl BotManager {
                 Err(_) => { /* durum okunamadi — re-spawn guvenli */ }
             }
         }
-        // Exited/none: (re)spawn
+        // Exited/none: (re)spawn.
+        // Config degerleri child kilidi ALINMADAN once okunmus olmali; burada
+        // `self.config()` cagirmak child -> config sirasi yaratir ve
+        // update_config'in ters sirasiyla kilitlenme riski dogururdu.
         let child = self.spawn()?;
         *child_guard = Some(child);
-        let cfg = self.config().await;
         eprintln!(
-            "[bot] spawn edildi: node bot/index.js (host={}, port={}, name={})",
-            cfg.host, cfg.port, cfg.name
+            "[bot] spawn edildi: node bot/index.js (host={log_host}, port={log_port}, name={log_name})"
         );
         Ok(())
     }
@@ -182,7 +191,12 @@ impl BotManager {
         let mut cmd = tokio::process::Command::new("node");
         cmd.arg("bot/index.js")
             .current_dir(&self.repo_root)
-            .env("ATERKEEP_BOT_DIR", &root_str);
+            .env("ATERKEEP_BOT_DIR", &root_str)
+            // Master parolayi cocuk surece MIRAS BIRAKMA. Bot, mineflayer ile
+            // birlikte genis bir npm bagimlilik agaci calistiriyor; oradaki
+            // herhangi bir paket `process.env` okuyabilir. Botun bu parolaya
+            // hicbir ihtiyaci yok.
+            .env_remove("ATERKEEP_KEY");
         // Bot ciktisi bir dosyaya yazilir. Onceden /dev/null'a gidiyordu: bot
         // sunucudan atildiginda ya da baglanamadiginda geriye hicbir iz kalmiyor,
         // "bot girmiyor" sikayetinin sebebini gormek imkansiz oluyordu. Daemon'in
