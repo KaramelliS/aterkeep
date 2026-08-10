@@ -376,6 +376,46 @@ async fn main() {
         tx.clone(),
     ));
 
+    // Oturum omru olcumu. "Aternos cerezleri kac gun dayanir?" sorusunun
+    // bakilabilecek bir cevabi yok — Aternos ilan etmiyor ve pratik omur
+    // kullanicidan kullaniciya degisiyor (baska yerden giris, IP degisimi...).
+    // Cerezlerin girildigi ani kurulumda yaziyoruz; burada oldugu ani yakalayip
+    // farki kaydediyoruz. Boylece her kurulum kendi sayisini ogreniyor ve biz
+    // de zamanla gercek dagilimi.
+    {
+        let state = state.clone();
+        let watch_ctx = ctx.clone();
+        let tx = tx.clone();
+        tokio::spawn(async move {
+            let mut was_expired = false;
+            loop {
+                tokio::time::sleep(std::time::Duration::from_secs(20)).await;
+                let expired = { state.lock().await.session_expired };
+                // Yalnizca GECIS aninda yaz: her 20 saniyede bir config'e
+                // dokunmanin anlami yok.
+                if expired && !was_expired {
+                    let mut cfg = watch_ctx.cfg.lock().await;
+                    if let Some(started) = cfg.session_started {
+                        let lifetime = web::now_unix().saturating_sub(started);
+                        cfg.last_session_lifetime = Some(lifetime);
+                        let _ = cfg.save();
+                        aterkeep_core::log(
+                            &tx,
+                            "warn",
+                            format!(
+                                "oturum {} gun {} saat dayandi (cerezler {} tarihinde girilmisti)",
+                                lifetime / 86_400,
+                                (lifetime % 86_400) / 3_600,
+                                started
+                            ),
+                        );
+                    }
+                }
+                was_expired = expired;
+            }
+        });
+    }
+
     let app = web::router(ctx);
     let addr = format!("{}:{}", cfg.bind, cfg.port);
     let listener = tokio::net::TcpListener::bind(&addr)

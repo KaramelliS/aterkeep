@@ -141,6 +141,25 @@ function fmtTime(d) {
   return d.toLocaleTimeString(LOCALE, { hour12: false });
 }
 
+/// "3g 4sa" gibi kisa sure. Saniye/dakika seviyesi bu baglamda gurultu.
+function fmtDuration(sec) {
+  const d = Math.floor(sec / 86400);
+  const h = Math.floor((sec % 86400) / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  if (d > 0) return `${d}d ${h}h`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m`;
+}
+
+/// Oturum yasi + varsa bir onceki oturumun omru. Ikincisi kullanicinin
+/// "ne siklikta cerez yenilemem gerekiyor?" sorusuna kendi verisinden cevap
+/// verir — tahmin etmesine gerek kalmaz.
+function fmtAge(age, last) {
+  if (age == null) return t("session_never");
+  const now = fmtDuration(age);
+  return last ? `${now} (${t("session_last")}: ${fmtDuration(last)})` : now;
+}
+
 function renderStatus(s) {
   lastStatus = s;
   const st = states[s.state] || states.unknown;
@@ -168,6 +187,10 @@ function renderStatus(s) {
   $("serverId").textContent = s.server_id || "—";
   $("lastCheck").textContent = s.last_check ? fmtTime(new Date(s.last_check * 1000)) : "—";
   $("loopState").textContent = s.running ? "…" : s.auto ? "24/7" : "off";
+  // Cerezlerin kac gundur ayakta oldugu. Aternos cerez omrunu ilan etmiyor;
+  // kullanicinin "ne siklikta yenilemem gerekiyor?" sorusuna verebilecegimiz
+  // tek durust cevap kendi olctugumuz sayi.
+  $("sessionAge").textContent = fmtAge(s.session_age, s.last_session_lifetime);
   $("autoToggle").checked = !!s.auto;
 
   $("metricPlayers").textContent = `${s.players ?? 0}/${s.slots ?? 20}`;
