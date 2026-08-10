@@ -12,6 +12,9 @@
 
 ## Özellikler
 
+- **Otomatik sıra onayı** — sıra sana geldiğinde Aternos ~30 saniyelik bir onay penceresi açar; cevap gelmezse kuyruğun sonuna atılırsın. 7/24 çalışmanın asıl şartı bu adımdır ve keep-alive scriptlerinin sonsuza kadar kuyrukta dönmesinin sebebi de budur.
+- **Senin yerine giriş yapar** — Aternos hesabınla kurulum yaparsan çerezi aterkeep kendisi alır, süresi dolunca da kendisi yeniler. DevTools yok, ayda bir kopyala-yapıştır yok.
+- **Anti-idle bot** — sunucu açılınca giren, boş kaldığı için kapatılmasını engelleyen bir Minecraft istemcisi
 - **Keep-alive döngüsü** — 90 saniyede bir kontrol, sunucu kapanınca otomatik başlat (açılıp kapanabilir)
 - **Web panel** — canlı durum, başlat/durdur/yeniden başlat, oto-başlat anahtarı
 - **Sunucu konsolu** — tarayıcıdan canlı sunucu logu
@@ -34,32 +37,34 @@ cargo build --release
 # binary: target/release/aterkeep.exe
 ```
 
-## Session dışa aktarma (bir kez)
+## Kurulum (bir kez)
 
-1. **https://aternos.org** aç, giriş yap.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → ':' sonrası → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: `ATERNOS_SESSION` ve `ATERNOS_SERVER` değerlerini kopyala
-4. `http/session.json` oluştur (format için [English README](README.md#setup--export-your-session-once)'e bak):
+Binary'yi çalıştır ve **http://127.0.0.1:4041** adresini aç. Sihirbaz üç adım
+sorar: panel dili, panel parolası, Aternos oturumu.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+**Panel parolası** iki iş yapar: paneli korur *ve* oturumunu şifreler. Anahtar
+diske **yazılmaz**, her açılışta bu paroladan türetilir (PBKDF2-HMAC-SHA256,
+600 000 tur). **Unutursan kurtarma yoktur** — `config/` silinip yeniden kurulur.
 
-5. Şifrele ve içe aktar:
+**Aternos oturumu için iki yol var:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Aternos hesabı (varsayılan).** Kullanıcı adı ve parolanı yaz; aterkeep saf
+HTTP ile giriş yapıp çerezi kendisi alır. Tarayıcı, DevTools, kopyalama yok.
+Hesabında birden fazla sunucu varsa hangisini ayakta tutacağını sorar. Bilgiler
+`config/session.enc` içinde, çerezlerle **aynı** AES-256-GCM şifresi altında
+durur ve yalnızca `aternos.org`'a gönderilir. Tek amaçları: oturum düşünce
+aterkeep yeniden giriş yapabilsin.
 
-Kurulumda bir **panel parolası** belirlersin: hem paneli korur hem oturumu şifreler. Anahtar **diske yazılmaz**, her açılışta paroladan türetilir. Her şey tek bir `config/` klasöründe toplanır. **Parolayı unutursan kurtarma yoktur.** Arka planda çalıştırmak için: `ATERKEEP_KEY='parolan' ./aterkeep`
+> İki durumda çalışmaz: hesapta **iki adımlı doğrulama** açıksa, ya da Aternos
+> **captcha** isterse. İkisi de kendi mesajıyla bildirilir ve ikinci yola geçmen
+> gerekir.
+
+**2. Çerez yapıştırma (yedek).** `aternos.org`'da F12 → **Network** → F5 →
+herhangi bir isteğin `cookie:` satırının tamamını kopyala; **Console**'da
+`window.AJAX_TOKEN` çalıştırıp çıktısını al. İkisini sihirbaza yapıştır.
+`ATERNOS_SESSION` **HttpOnly** olduğu için JavaScript onu okuyamaz — Network
+sekmesi tek yol. Sunucu kimliği yapıştırdığın çerezlerden otomatik bulunur.
+Bu yolla kurulan oturum **kendini yenileyemez**.
 
 ## Çalıştırma
 
@@ -80,9 +85,23 @@ Tarayıcıda **http://127.0.0.1:4041** aç.
 
 **Oto-başlat anahtarı önemli:** kapalıyken daemon sunucuyu asla yeniden başlatmaz. **Durdur** butonu onu otomatik kapatır.
 
-## Session ömrü
+## Oturum ömrü
 
-Aternos session çerezleri **~30 gün** yaşar. Panel `OTURUM BİTTİ` gösterince export adımlarını tekrarla ve import et. Ayda 1, 2 dakika.
+Aternos oturum çerezini `Max-Age=2592000` ile veriyor — **tam 30 gün**. Bu sayı
+giriş cevabından ölçüldü, tahmin değil. Başka yerden çıkış yaparsan ya da
+parolanı değiştirirsen daha erken de bitebilir.
+
+**Hesapla kurduysan** yapacak bir şey yok: çerezler düşünce daemon yeniden giriş
+yapar, taze oturumu yazar ve devam eder. Log'da tek satır görürsün.
+
+**Çerez yapıştırdıysan** panel `SESSION` rozeti ve "oturum düştü" uyarısı
+gösterir — eskiden bu "sunucun kapalı" gibi görünüyordu — ve seni tek tıkla
+sihirbaza götürür. O noktada hesap yöntemine geçmek bu işi tamamen bitirir.
+
+Panel ayrıca **oturum yaşını** gösterir; ilk düşüşten sonra bir öncekinin ne
+kadar dayandığını da. Aternos bir sayı ilan etmiyor, aterkeep seninkini ölçüyor.
+
+Makine yeniden başlayınca kendi kalkması için: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (Windows görevi — parola DPAPI ile korunur, systemd, Termux:Boot).
 
 ## Güvenlik
 

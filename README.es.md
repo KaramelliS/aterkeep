@@ -12,6 +12,9 @@
 
 ## Características
 
+- **Confirmación automática de la cola** — cuando llega tu turno, Aternos abre una ventana de unos 30 segundos; si nadie responde, vuelves al final. Este paso es lo que hace posible el 24/7 desatendido.
+- **Inicia sesión por ti** — con tu cuenta de Aternos, aterkeep obtiene la cookie de sesión por su cuenta y la renueva cuando caduca. Sin DevTools, sin copiar y pegar cada mes.
+- **Bot anti-idle** — un cliente de Minecraft que entra cuando el servidor está encendido para que no lo apaguen por estar vacío
 - **Bucle keep-alive** — comprueba cada 90 s y reinicia el servidor automáticamente (desactivable)
 - **Dashboard web** — estado en vivo, iniciar/detener/reiniciar, interruptor auto-inicio
 - **Consola del servidor** — log del servidor en vivo desde el navegador
@@ -34,32 +37,30 @@ cargo build --release
 # binario: target/release/aterkeep.exe
 ```
 
-## Exportar sesión (una vez)
+## Instalación (una vez)
 
-1. Abre **https://aternos.org** e inicia sesión.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → parte tras `:` → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: copia `ATERNOS_SESSION` y `ATERNOS_SERVER`
-4. Crea `http/session.json` (formato: [English README](README.md#setup--export-your-session-once)):
+Ejecuta el binario y abre **http://127.0.0.1:4041**. El asistente pide tres
+cosas: idioma del panel, contraseña del panel y sesión de Aternos.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+La **contraseña del panel** protege el panel *y* cifra la sesión. La clave
+**nunca se guarda en disco**: se deriva de la contraseña en cada arranque
+(PBKDF2-HMAC-SHA256, 600 000 iteraciones). **No hay recuperación.**
 
-5. Importa:
+**Dos formas de dar la sesión:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Cuenta de Aternos (predeterminado).** Escribe tu usuario y contraseña:
+aterkeep inicia sesión por HTTP puro y obtiene la cookie. Si tu cuenta tiene
+varios servidores, el asistente pregunta cuál mantener. Las credenciales se
+guardan en `config/session.enc`, bajo el mismo cifrado AES-256-GCM que las
+cookies, y solo se envían a `aternos.org`.
 
-Durante la instalación defines una **contraseña del panel**: protege el panel *y* cifra la sesión. La clave **nunca se escribe en disco**; se deriva de la contraseña en cada arranque. Todo queda en una única carpeta `config/`. **Si la olvidas, no hay recuperación.** Para ejecución desatendida: `ATERKEEP_KEY='tu-contraseña' ./aterkeep`
+> No funciona con **verificación en dos pasos** ni si Aternos pide un
+> **captcha**; ambos se informan con su propio mensaje.
+
+**2. Pegar cookies (alternativa).** En `aternos.org`: F12 → **Network** → F5,
+copia la línea `cookie:` completa de cualquier petición y ejecuta
+`window.AJAX_TOKEN` en la **Console**. Una sesión creada así **no se renueva
+sola**.
 
 ## Ejecutar
 
@@ -82,7 +83,19 @@ Abre **http://127.0.0.1:4041**.
 
 ## Duración de la sesión
 
-Las cookies de sesión de Aternos duran **~30 días**. Cuando el panel muestre `OTURUM BİTTİ`/`LOGGED OUT`, repite la exportación y vuelve a importar.
+Aternos entrega la cookie con `Max-Age=2592000` — **exactamente 30 días**,
+medido en la respuesta del inicio de sesión, no supuesto.
+
+**Con cuenta:** nada que hacer. Al caducar, el demonio vuelve a iniciar sesión y
+continúa — una línea en el registro.
+
+**Con cookies pegadas:** el panel muestra una insignia `SESSION` y un aviso de
+sesión caducada — no un servidor apagado — con un botón que lleva al asistente.
+
+El panel también muestra la **antigüedad de la sesión** y, tras la primera
+caducidad, cuánto duró la anterior.
+
+Arranque automático tras reiniciar: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (tarea programada de Windows con DPAPI, systemd, Termux:Boot).
 
 ## Seguridad
 

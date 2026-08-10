@@ -12,6 +12,9 @@
 
 ## Recursos
 
+- **Confirmação automática da fila** — quando chega a tua vez, o Aternos abre uma janela de cerca de 30 segundos; sem resposta voltas para o fim. É este passo que torna o 24/7 sem supervisão possível.
+- **Faz login por ti** — com a tua conta Aternos, o aterkeep obtém o cookie de sessão sozinho e renova-o quando expira. Sem DevTools, sem copiar e colar todos os meses.
+- **Bot anti-idle** — um cliente Minecraft que entra quando o servidor está ligado para que não seja desligado por estar vazio
 - **Loop keep-alive** — verifica a cada 90 s e reinicia o servidor automaticamente (desativável)
 - **Painel web** — status ao vivo, iniciar/parar/reiniciar, interruptor auto-start
 - **Console do servidor** — log ao vivo no navegador
@@ -34,32 +37,29 @@ cargo build --release
 # binário: target/release/aterkeep.exe
 ```
 
-## Exportar sessão (uma vez)
+## Instalação (uma vez)
 
-1. Abra **https://aternos.org** e faça login.
-2. `F12` → **Console**: `window.AJAX_TOKEN` → `token`; `window.generateAjaxToken()` → parte após `:` → `sec`
-3. `F12` → **Application → Cookies → https://aternos.org**: copie `ATERNOS_SESSION` e `ATERNOS_SERVER`
-4. Crie `http/session.json` (formato: [English README](README.md#setup--export-your-session-once)):
+Executa o binário e abre **http://127.0.0.1:4041**. O assistente pede três
+coisas: idioma do painel, palavra-passe do painel e sessão do Aternos.
 
-```json
-{
-  "token": "PASTE_AJAX_TOKEN",
-  "sec": "PASTE_GENERATE_AJAX_TOKEN_VALUE",
-  "cookies": [
-    { "name": "ATERNOS_SESSION", "value": "PASTE_SESSION_VALUE" },
-    { "name": "ATERNOS_SERVER", "value": "PASTE_SERVER_ID" }
-  ]
-}
-```
+A **palavra-passe do painel** protege o painel *e* cifra a sessão. A chave
+**nunca é escrita em disco**: é derivada da palavra-passe a cada arranque
+(PBKDF2-HMAC-SHA256, 600 000 iterações). **Não há recuperação.**
 
-5. Importe:
+**Duas formas de dar a sessão:**
 
-```powershell
-cd rust
-.\target\release\aterkeep.exe import ..\http\session.json
-```
+**1. Conta Aternos (padrão).** Escreve o teu utilizador e palavra-passe: o
+aterkeep entra por HTTP puro e obtém o cookie sozinho. Se a conta tiver vários
+servidores, o assistente pergunta qual manter ligado. As credenciais ficam em
+`config/session.enc`, sob a mesma cifra AES-256-GCM dos cookies, e só são
+enviadas para `aternos.org`.
 
-Na instalação você define uma **senha do painel**: ela protege o painel *e* criptografa a sessão. A chave **nunca é gravada em disco**; é derivada da senha a cada início. Tudo fica em uma única pasta `config/`. **Se esquecer, não há recuperação.** Para execução autônoma: `ATERKEEP_KEY='sua-senha' ./aterkeep`
+> Não funciona com **verificação em duas etapas** nem se o Aternos pedir
+> **captcha**; ambos são reportados com mensagem própria.
+
+**2. Colar cookies (alternativa).** Em `aternos.org`: F12 → **Network** → F5,
+copia toda a linha `cookie:` de um pedido e executa `window.AJAX_TOKEN` na
+**Console**. Uma sessão criada assim **não se renova sozinha**.
 
 ## Executar
 
@@ -82,7 +82,19 @@ Abra **http://127.0.0.1:4041**.
 
 ## Duração da sessão
 
-Os cookies de sessão Aternos duram **~30 dias**. Quando o painel mostrar `OTURUM BİTTİ`/`LOGGED OUT`, repita a exportação e reimporte.
+O Aternos entrega o cookie com `Max-Age=2592000` — **exatamente 30 dias**,
+medido na resposta do login, não adivinhado.
+
+**Com conta:** nada a fazer. Ao expirar, o daemon volta a entrar e continua —
+uma linha no registo.
+
+**Com cookies colados:** o painel mostra um crachá `SESSION` e um aviso de sessão
+expirada — não um servidor desligado — com um botão que leva ao assistente.
+
+O painel mostra ainda a **idade da sessão** e, após a primeira expiração, quanto
+durou a anterior.
+
+Arranque automático após reiniciar: **[docs/AUTOSTART.md](docs/AUTOSTART.md)** (tarefa agendada do Windows com DPAPI, systemd, Termux:Boot).
 
 ## Segurança
 
