@@ -51,29 +51,20 @@ reliable mechanism on modern Android, and it is why the APK exists at all:
 
 Tap **Durdur** in the notification to stop it.
 
-## The anti-idle bot does not run on Android
+## The anti-idle bot runs here too
 
-This is the one real gap, and it is worth being precise about.
+It used to be the one real gap: the bot was a Node.js program, Node cannot ship
+inside an APK, so phones got the daemon without the bot and an emptied server was
+merely restarted rather than kept up.
 
-The anti-idle bot is a Node.js program built on mineflayer. Node cannot ship
-inside the APK, so on Android you get the daemon **without** the bot. Practically:
+That gap is closed. The bot is now a native Rust client compiled into the same
+binary, so Android gets the same behaviour as desktop — see
+[docs/BOT.md](BOT.md). Two things worth knowing:
 
-| | Desktop (with bot) | Android APK (no bot) |
-|---|---|---|
-| Queue confirmation | yes | yes |
-| Auto session renewal | yes | yes |
-| Restarts a stopped server | yes | yes |
-| Keeps an *empty* server from stopping | yes | **no** |
-
-Aternos stops a server once it has been empty for a while. With the bot, a
-(hidden, spectator) player is always present so that never triggers. Without it,
-your server will be stopped and then restarted by the daemon — you get an
-**auto-restart loop**, not seamless uptime. For a server people actually play on
-that is usually fine; for one you want reachable at every instant, it is not.
-
-Removing this gap means reimplementing the bot natively in Rust so it ships
-inside the binary on every platform. That is tracked as planned work, not
-something you can enable today.
+- It needs a **cracked (offline-mode)** server running **1.21.11 or older**.
+- To actually hide itself it needs **operator rights**; without them it stands at
+  spawn as a visible player. It still keeps the server from being stopped, and
+  the panel says so explicitly instead of pretending it is hidden.
 
 ## Autostart after reboot
 
@@ -130,7 +121,7 @@ Worth knowing if you are debugging it:
 | Stuck on "Panel baslatiliyor…" | The gate screen prints the daemon's own log tail after ~60 s — read it. Wrong password is the usual cause. |
 | Panel opens, then everything fails with a network error | Almost always DNS or certificates. Confirm the device has working internet, then check the log for `curl hatasi`. |
 | Service disappears after a while | Battery exemption was not granted, or the vendor ROM (Xiaomi, Huawei, Samsung) has its own aggressive killer — allow "autostart"/"no restrictions" for aterkeep in system settings. |
-| Server keeps stopping and restarting | Expected without the anti-idle bot; see the section above. |
+| Server keeps stopping and restarting | The bot is not getting in. Check the bot panel: `online_mode` means the server is not cracked, `unsupported_version` means it is newer than 1.21.11. |
 | `LOGGED OUT` after ~30 days | Session expired and could not renew. Re-run the panel's setup wizard. |
 
 ---
