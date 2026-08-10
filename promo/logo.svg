@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="aterkeep">
+  <!-- Marka: konsol istemi (yesil kare, chevron + alt cizgi).
+       Favicon ile ayni dil. Gradyan yok, dogrudan ok yesili. -->
+  <rect width="64" height="64" rx="14" fill="#27c46b"/>
+  <path d="M20 22 L30 32 L20 42" fill="none" stroke="#06140c" stroke-width="5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <line x1="34" y1="43" x2="46" y2="43" stroke="#06140c" stroke-width="5" stroke-linecap="round"/>
+</svg>
