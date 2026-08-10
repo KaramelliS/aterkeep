@@ -285,7 +285,7 @@ machine (or malware running as your user) can read it. Keep the host clean.
 | Problem | Fix |
 |---|---|
 | Panel shows `SESSION` | The Aternos session expired → press **Refresh cookies** in the banner, or switch to account login so it renews itself. |
-| Server keeps stopping | That's normal: Aternos pauses empty servers after ~60 s idle. Keep the daemon running; it restarts within 90 s. For truly uninterrupted uptime, keep a Minecraft client/bot connected. |
+| Server keeps stopping | That's normal: Aternos pauses empty servers after ~60 s idle. Keep the daemon running; it restarts within about a minute. For truly uninterrupted uptime, keep a Minecraft client/bot connected. |
 | Forgot the panel password | Cannot be recovered — it is never stored. Delete the `config/` folder and run setup again with a fresh session. |
 | `decrypt failed (yanlis key?)` on start | Wrong password, or `ATERKEEP_KEY` is set to the wrong value. |
 | Won't start in the background | The password cannot be prompted for without a terminal — set `ATERKEEP_KEY` in the service's environment, or use the installers in the [autostart guide](docs/AUTOSTART.md). |
