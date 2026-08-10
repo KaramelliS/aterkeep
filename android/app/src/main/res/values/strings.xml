@@ -17,5 +17,5 @@
     <string name="view_log">Kayitlari gor</string>
     <!-- Kesme isareti (') KULLANMA: Android string kaynaklarinda escape edilmesi
          gerekiyor, aksi halde aapt kaynagi hic derlemiyor. -->
-    <string name="unsupported_abi">Bu cihaz arm64 (aarch64) degil. Bu APK yalnizca arm64 cihazlari destekliyor.</string>
+    <string name="unsupported_abi">Bu cihazin islemci mimarisi desteklenmiyor. Bu APK arm64, arm32 ve x86_64 tasiyor.</string>
 </resources>

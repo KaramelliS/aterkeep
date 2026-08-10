@@ -26,12 +26,15 @@ android {
         versionCode = 1
         versionName = "1.1.0"
 
-        // Tasidigimiz iki binary (daemon + curl) aarch64 icin derlenmis.
-        // Baska bir ABI'yi paketlemek, o cihazda calisamayacak bir APK uretirdi;
-        // filtre sayesinde uyumsuz cihaz APK'yi hic kabul etmiyor ve kullanici
-        // "kuruldu ama hicbir sey olmuyor" yerine net bir hata goruyor.
+        // Her ABI icin daemon + statik curl tasiniyor (CI ucunu de derliyor).
+        // Filtre acikca yaziliyor ki jniLibs'e yanlislikla girmis, karsiligi
+        // derlenmemis bir ABI sessizce paketlenmesin — oyle bir APK o cihazda
+        // kurulur ama binary'yi exec edemez.
+        //
+        // x86_64 asil olarak EMULATOR icin: onsuz calisma zamani davranisini
+        // fiziksel telefon olmadan hic test edemiyoruz.
         ndk {
-            abiFilters.add("arm64-v8a")
+            abiFilters.addAll(listOf("arm64-v8a", "armeabi-v7a", "x86_64"))
         }
     }
 

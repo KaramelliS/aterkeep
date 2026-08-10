@@ -3,9 +3,10 @@
 Install one APK, type your panel password, and the keep-alive daemon runs in a
 foreground service. No Termux, no `pkg install`, no Rust toolchain, no shell.
 
-> **arm64 only.** The APK carries two prebuilt `aarch64` binaries, so it installs
-> on arm64 phones (essentially every phone made in the last decade) and refuses
-> 32-bit ones rather than installing and doing nothing.
+> **One APK, three architectures.** It carries a daemon and a static curl for
+> `arm64-v8a`, `armeabi-v7a` and `x86_64` — modern phones, older 32-bit ones, and
+> x86 emulators. If a device somehow matches none of them the app says so on the
+> first screen instead of installing and doing nothing.
 
 ---
 

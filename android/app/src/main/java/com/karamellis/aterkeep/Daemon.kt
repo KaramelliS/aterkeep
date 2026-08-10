@@ -84,7 +84,16 @@ object Daemon {
         )
     }
 
-    /** Cihaz bu APK'nin tasidigi binary'leri calistirabiliyor mu? */
+    /** APK'nin binary tasidigi ABI'ler. */
+    private val SHIPPED_ABIS = setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+
+    /**
+     * Cihaz bu APK'nin tasidigi binary'leri calistirabiliyor mu?
+     *
+     * Pratikte her Android cihaz bunlardan birini destekliyor; kontrol yine de
+     * duruyor cunku alternatif, kurulduktan sonra sebebi gorunmeyen bir
+     * "hicbir sey olmuyor" durumu.
+     */
     fun abiSupported(): Boolean =
-        android.os.Build.SUPPORTED_ABIS.any { it == "arm64-v8a" }
+        android.os.Build.SUPPORTED_ABIS.any { it in SHIPPED_ABIS }
 }

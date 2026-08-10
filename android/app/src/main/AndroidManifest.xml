@@ -24,8 +24,12 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Aterkeep"
         android:networkSecurityConfig="@xml/network_security_config"
-        android:extractNativeLibs="true"
         tools:targetApi="34">
+        <!-- extractNativeLibs BURAYA YAZILMIYOR (AGP bunu uyari olarak soyluyor):
+             tek dogru kaynak build.gradle.kts'teki packaging.jniLibs.
+             useLegacyPackaging = true, manifeste extractNativeLibs="true" olarak
+             yansiyor. Iki yerde tutmak, birini degistirip digerini unutmaya
+             davetiye — ve bu ayar exec edilebilirligin tek dayanagi. -->
 
         <activity
             android:name=".MainActivity"
