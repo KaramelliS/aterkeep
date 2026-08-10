@@ -1,9 +1,9 @@
 {
   "enabled": false,
   "name": "AterkeepBot",
-  "host": "",
+  "host": "your-server.aternos.me",
   "port": 25565,
-  "vanish_x": 5000,
-  "vanish_y": 320,
-  "vanish_z": 5000
+  "vanish_x": 5000.0,
+  "vanish_y": 320.0,
+  "vanish_z": 5000.0
 }

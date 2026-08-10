@@ -62,8 +62,13 @@ commercial agreement signed by the Licensor, You may NOT:
   (f) remove, obscure, or alter any copyright, trademark, or other proprietary
       notice contained in the Software; or
 
-  (g) publish, mirror, or redistribute the source code of the Software,
-      including forks intended for redistribution.
+  (g) publish, mirror, or otherwise redistribute the source code of the
+      Software outside the repository from which you obtained it.
+
+      For the avoidance of doubt: forking this repository within GitHub, as
+      permitted by the GitHub Terms of Service, is not a breach of this
+      clause. Publishing the Software elsewhere, or distributing a derivative
+      of it, is.
 
 
 4. COMMERCIAL LICENSING

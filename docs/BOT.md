@@ -1,3 +1,12 @@
+# Anti-idle bot
+
+> **Note:** the detail below is in Turkish. The short version in English:
+> the daemon spawns `node bot/index.js` when the server comes online and stops
+> it when the server goes down. Settings live in `config/bot.json`, live state
+> in `config/bot-status.json`, and the bot needs Node.js plus `npm install`
+> inside `bot/`. The `bot/` folder ships in `aterkeep-extras.zip`, not with the
+> bare binary.
+
 # aterkeep-bot — Anti-Idle Bot
 
 aterkeep daemon'ı, sunucuyu kalıcı olarak ayakta tutmak için opsiyonel bir **Node.js anti-idle botu** barındırır. Bot, bir gerçek oyuncu gibi bağlanır ama görünmez (spectator + vanish) modda uzakta AFK kalır; koparsa otomatik yeniden bağlanır. Böylece Aternos'un "boş sunucu → durdurma" davranışı tetiklenmez.
@@ -50,9 +59,9 @@ Daemon çalışma zamanında yazar; git'e eklenmez. Şablon: `config/bot.example
 | `ATERKEEP_BOT_PORT` | config | port override |
 | `ATERKEEP_BOT_NAME` | config | isim override |
 | `ATERKEEP_BOT_VX/VY/VZ` | config | vanish koordinatları override |
-| `ATERKEEP_BOT_RETRY` | `8000` | normal yeniden bağlanma ms |
+| `ATERKEEP_BOT_RETRY` | `25000` | normal yeniden bağlanma ms |
 | `ATERKEEP_BOT_DEAD_RETRY` | `20000` | sunucu kapalıyken bekleme ms |
-| `ATERKEEP_BOT_PINGTO` | `8000` | ping timeout ms |
+| `ATERKEEP_BOT_PINGTO` | `25000` | ping timeout ms |
 
 ## Durum alanları (`config/bot-status.json`)
 

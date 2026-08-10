@@ -6,6 +6,12 @@ on:
     tags: ['v*']
   pull_request:
 
+# Varsayilan izin: yalnizca okuma. Release isi kendi icinde contents: write
+# istiyor; geri kalan her adim (ve cektikleri ucuncu taraf action'lar) yazma
+# yetkisi gormemeli.
+permissions:
+  contents: read
+
 env:
   CARGO_TERM_COLOR: always
 
@@ -30,14 +36,25 @@ jobs:
       - name: Rust toolchain
         run: rustup default stable
       # aterkeep-core PRIVATE repo'dan git dependency çekiyor.
-      # ATERKEEP_CORE_TOKEN: PAT (repo scope) — repo Settings > Secrets'a eklenmeli.
+      # ATERKEEP_CORE_TOKEN: aterkeep-core icin SALT OKUNUR fine-grained PAT
+      # olmali. Klasik "repo" kapsamli bir token bu hesabin TUM depolarina
+      # yazma yetkisi verir ve is boyunca her adima gorunur.
       # x-access-token formatı GitHub PAT için doğru; tüm platformlarda (Windows
       # credential helper çakışması olmadan) çalışır.
+      # Fork'lardan gelen PR'lar secret goremez; bu adimi kosullamazsak her fork
+      # PR'i anlasilmaz bir hatayla patlar. Fork'ta derleme atlanir.
       - name: Configure private crate access
+        if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
         run: git config --global url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf https://github.com/KaramelliS/aterkeep-core.git
       - name: Build release
+        if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push'
         run: cargo build --release --manifest-path rust/Cargo.toml
+      # Kimlik bilgisini sonraki adimlardan (ve onlarin cektigi action'lardan) kaldir.
+      - name: Revoke private crate credential
+        if: always()
+        run: git config --global --unset-all url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf || true
       - name: Upload artifact
+        if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name == 'push' 
         uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.artifact }}
@@ -69,6 +86,9 @@ jobs:
         run: git config --global url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf https://github.com/KaramelliS/aterkeep-core.git
       - name: Build release
         run: cargo build --release --manifest-path rust/Cargo.toml
+      # Yayin adimlari ucuncu taraf action'lar; PAT'i onlardan once dusur.
+      - name: Revoke private crate credential
+        run: git config --global --unset-all url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf || true
       - name: Stage release asset
         shell: bash
         run: |
@@ -86,7 +106,8 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
-          zip -r dist/aterkeep-extras.zip bot scripts docs README.md LICENSE \
+          zip -r dist/aterkeep-extras.zip \
+            bot scripts docs README.md README.tr.md LICENSE config/bot.example.json \
             -x 'bot/node_modules/*' 'bot/*.log'
       - name: Upload companion archive
         if: matrix.os == 'ubuntu-latest'

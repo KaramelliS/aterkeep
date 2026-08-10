@@ -163,7 +163,7 @@ Alternatives for a persistent session:
 - **tmux** — `pkg install tmux`, then `tmux`, run `./aterkeep`, detach with `Ctrl-b d`, reattach with `tmux a`.
 - **screen** — `pkg install screen`, then `screen -S aterkeep`, run the daemon, detach with `Ctrl-a d`, reattach with `screen -r aterkeep`.
 
-> **Important:** `termux-wake-lock` is what keeps the CPU polling every 90 s while the screen is off. Without it, Aternos will report your server as offline within minutes. Don't forget `termux-wake-unlock` when you stop the daemon, or it drains your battery.
+> **Important:** `termux-wake-lock` is what keeps the CPU polling every 30 s while the screen is off. Without it, Aternos will report your server as offline within minutes. Don't forget `termux-wake-unlock` when you stop the daemon, or it drains your battery.
 
 ---
 
