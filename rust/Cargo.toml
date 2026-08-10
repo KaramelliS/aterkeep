@@ -12,7 +12,7 @@ publish = false
 # Public repo bunu dependency olarak çeker; kaynak public repoda DEĞİL.
 # Local derleme için GitHub auth gerekir (gh auth / git credential helper).
 # CI deploy key ile erişir. Son kullanıcı hazır binary indirir (derlemez).
-aterkeep-core = { git = "https://github.com/KaramelliS/aterkeep-core.git", rev = "14641a1" }
+aterkeep-core = { git = "https://github.com/KaramelliS/aterkeep-core.git", rev = "40c1c32" }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }
@@ -26,3 +26,13 @@ async-stream = "0.3"
 pbkdf2 = "0.12"
 sha2 = "0.10"
 hmac = "0.12"
+# Anti-idle bot (src/mcbot.rs) icin.
+# Minecraft protokolu, sunucu "Set Compression" gonderdikten sonra paketleri
+# zlib ile sikistirir; bu opsiyonel degil, esigi asan her pakette zorunlu.
+# rust_backend: saf Rust (miniz_oxide). C backend'i (zlib-sys) Android'e
+# cross-compile ederken clang/cmake istiyor ve bosuna bir engel olurdu.
+flate2 = { version = "1", default-features = false, features = ["rust_backend"] }
+# Offline (cracked) UUID, "OfflinePlayer:<isim>"in MD5'inden turetilen v3 UUID.
+# Vanilla sunucu offline modda bunu kendisi hesapliyor ama login paketi bir UUID
+# istiyor; dogrusunu gondermek bedava.
+md-5 = "0.10"

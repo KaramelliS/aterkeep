@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">aterkeep</string>
+
+    <string name="notif_channel_name">Keep-alive servisi</string>
+    <string name="notif_channel_desc">Sunucuyu ayakta tutan servisin durumu</string>
+    <string name="notif_title">aterkeep calisiyor</string>
+    <string name="notif_stop">Durdur</string>
+
+    <string name="password_hint">Panel parolasi</string>
+    <string name="remember_password">Parolayi bu cihazda hatirla (yeniden baslatmadan sonra otomatik baslar)</string>
+    <string name="start">Baslat</string>
+    <string name="first_run_note">Ilk kurulumda parolayi SEN belirliyorsun: asagiya yazdigin parola panel kurulum sihirbazinda da ayni olmali.</string>
+    <string name="battery_prompt">Android, pil optimizasyonu acikken servise CPU vermeyi kisiyor. Muafiyet vermek 7/24 calismak icin gerekli.</string>
+    <string name="battery_button">Muafiyet ver</string>
+    <string name="waiting_panel">Panel baslatiliyor…</string>
+    <string name="panel_failed">Panel 127.0.0.1:4041 uzerinde acilmadi. Servis kayitlarina bak.</string>
+    <string name="view_log">Kayitlari gor</string>
+    <!-- Kesme isareti (') KULLANMA: Android string kaynaklarinda escape edilmesi
+         gerekiyor, aksi halde aapt kaynagi hic derlemiyor. -->
+    <string name="unsupported_abi">Bu cihazin islemci mimarisi desteklenmiyor. Bu APK arm64, arm32 ve x86_64 tasiyor.</string>
+</resources>

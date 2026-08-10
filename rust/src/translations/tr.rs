@@ -220,6 +220,10 @@ pub(super) const TR: T = &[
         "bot_err_whitelist",
         "<b>Sunucuda whitelist açık</b> ve bot listede değil. Botun adını whitelist'e ekle ya da Ayarlar sekmesinden whitelist'i kapat.",
     ),
+    (
+        "bot_err_vanish_no_permission",
+        "<b>Bot sunucuda görünür durumda:</b> girdi, yani boş sunucu artık durdurulmuyor; ama <code>/gamemode</code> ve <code>/tp</code> operatör yetkisi istediği için gizlenemedi. Aternos panelinde <b>Oyuncular → Operatörler</b> bölümüne botun adını ekle.",
+    ),
     ("bot_enabled", "bot etkin"),
     ("bot_disabled", "bot devre dışı"),
     ("bot_started", "bot başlatıldı"),

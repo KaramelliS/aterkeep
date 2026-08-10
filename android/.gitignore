@@ -1,0 +1,13 @@
+.gradle/
+build/
+local.properties
+keystore.properties
+*.keystore
+*.jks
+
+# CI tarafindan uretilip yerlestirilir (repoda tutulmaz):
+#   libaterkeep.so — cross-compile edilmis daemon
+#   libcurlx.so    — statik aarch64 curl
+#   cacert.pem     — curl.se CA demeti
+app/src/main/jniLibs/
+app/src/main/assets/cacert.pem

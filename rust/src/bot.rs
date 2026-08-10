@@ -1,18 +1,30 @@
 //! Minecraft anti-idle bot yoneticisi.
 //!
-//! Rust daemon, mevcut Node.js (mineflayer) bot surecini spawn eder/yonetir.
-//! Bot `config/bot.json`'dan ayarlarini okur, `config/bot-status.json`'a
-//! canli durum yazar. Bu mod sadece surec yonetimi + config persistence yapar;
-//! botun icerigi (index.js) ayri bir agent (B3) tarafindan yazilir.
+//! Bot artik AYRI BIR SUREC DEGIL: protokol istemcisi daemon'in icinde
+//! (`crate::mcbot`) ve burada bir tokio gorevi olarak yasiyor. Eskiden
+//! `node bot/index.js` spawn ediliyordu; Node bir APK'nin icine sigmadigi icin
+//! bot telefonda hic calismiyor, masaustunde de Node kurulumu + genis bir npm
+//! agaci gerektiriyordu.
+//!
+//! Bu mod ayarlarin kalici yazimini (`config/bot.json`) ve gorev yasam
+//! dongusunu yonetir; canli durum yine `config/bot-status.json`'a yazilir
+//! (panel sozlesmesi degismedi).
 
 use serde::Deserialize;
 use serde_json::{json, Value};
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use tokio::process::Child;
 use tokio::sync::Mutex;
+use tokio::task::JoinHandle;
 
 pub use aterkeep_core::BotConfig;
+
+/// Calisan bot gorevi ve onu durdurmak icin bayrak.
+struct Running {
+    handle: JoinHandle<()>,
+    stop: Arc<AtomicBool>,
+}
 
 /// PATCH guncellemesi — tum alanlar opsiyonel. Sadece verilen alanlar uzerine yazilir.
 /// frontend -> POST /api/bot/config icin.
@@ -28,7 +40,7 @@ pub struct BotConfigPatch {
 
 pub struct BotManager {
     config: Mutex<BotConfig>,
-    child: Mutex<Option<Child>>,
+    running: Mutex<Option<Running>>,
     repo_root: PathBuf,
 }
 
@@ -37,7 +49,7 @@ impl BotManager {
         let config = Self::load_config(&repo_root).unwrap_or_default();
         Self {
             config: Mutex::new(config),
-            child: Mutex::new(None),
+            running: Mutex::new(None),
             repo_root,
         }
     }
@@ -127,15 +139,17 @@ impl BotManager {
         Self::persist_config_locked(&snapshot, &self.repo_root)
     }
 
-    /// Bot surecini baslatir.
+    /// Bot gorevini baslatir.
     /// - Zaten calisiyorsa no-op (ama host/port degisse config'i gunceller).
-    /// - `node bot/index.js` cwd=repo_root, env ATERKEEP_BOT_DIR=repo_root ile spawn.
+    /// - Yerel protokol istemcisini (`crate::mcbot::run`) bir tokio gorevi olarak
+    ///   baslatir. Harici surec, Node ya da npm YOK.
     pub async fn start(&self, host: String, port: u16) -> Result<(), String> {
-        // host/port degistiyse once config'i guncelle + persist et. Log icin
-        // gereken degerler BURADA yerel degiskenlere alinir; child kilidi
-        // altindayken config kilidini almak (child -> config) update_config'in
-        // sirasiyla (config -> child) ters duser ve kilitlenme uretir.
-        let (log_host, log_port, log_name) = {
+        // host/port degistiyse once config'i guncelle + persist et. Goreve
+        // gereken TUM degerler BURADA, running kilidi ALINMADAN once aliniyor:
+        // running kilidi altindayken config kilidini almak (running -> config)
+        // update_config'in sirasiyla (config -> running) ters duser ve
+        // kilitlenme uretir.
+        let cfg = {
             let mut cfg = self.config.lock().await;
             if cfg.host != host || cfg.port != port {
                 cfg.host = host;
@@ -143,103 +157,62 @@ impl BotManager {
                 let snapshot = cfg.clone();
                 Self::persist_config_locked(&snapshot, &self.repo_root)?;
             }
-            (cfg.host.clone(), cfg.port, cfg.name.clone())
+            cfg.clone()
         };
+        let (log_host, log_port, log_name) = (cfg.host.clone(), cfg.port, cfg.name.clone());
 
-        let mut child_guard = self.child.lock().await;
-        if let Some(child) = child_guard.as_mut() {
-            match child.try_wait() {
-                Ok(Some(_)) => { /* exited — asagida yeniden spawn */ }
-                Ok(None) => {
-                    // hala calisiyor — no-op
-                    return Ok(());
-                }
-                Err(_) => { /* durum okunamadi — re-spawn guvenli */ }
+        let mut guard = self.running.lock().await;
+        if let Some(r) = guard.as_ref() {
+            if !r.handle.is_finished() {
+                // hala calisiyor — no-op
+                return Ok(());
             }
         }
-        // Exited/none: (re)spawn.
-        // Config degerleri child kilidi ALINMADAN once okunmus olmali; burada
-        // `self.config()` cagirmak child -> config sirasi yaratir ve
-        // update_config'in ters sirasiyla kilitlenme riski dogururdu.
-        let child = self.spawn()?;
-        *child_guard = Some(child);
+
+        let stop = Arc::new(AtomicBool::new(false));
+        let handle = tokio::spawn(crate::mcbot::run(
+            cfg,
+            self.repo_root.clone(),
+            stop.clone(),
+        ));
+        *guard = Some(Running { handle, stop });
         eprintln!(
-            "[bot] spawn edildi: node bot/index.js (host={log_host}, port={log_port}, name={log_name})"
+            "[bot] baslatildi (host={log_host}, port={log_port}, name={log_name})"
         );
         Ok(())
     }
 
-    /// bot/bot.log'u ekleme modunda acar ve stdout+stderr icin iki tutamac doner.
-    /// Dosya 2 MB'i gecerse sifirlanir — gunlerce calisan bir daemon'da log
-    /// sinirsiz buyumemeli.
-    fn open_bot_log(root: &Path) -> Option<(std::process::Stdio, std::process::Stdio)> {
-        let path = root.join("bot").join("bot.log");
-        if std::fs::metadata(&path).map(|m| m.len()).unwrap_or(0) > 2 * 1024 * 1024 {
-            let _ = std::fs::write(&path, b"");
-        }
-        let f = std::fs::OpenOptions::new()
-            .create(true)
-            .append(true)
-            .open(&path)
-            .ok()?;
-        let f2 = f.try_clone().ok()?;
-        Some((std::process::Stdio::from(f), std::process::Stdio::from(f2)))
-    }
-
-    fn spawn(&self) -> Result<Child, String> {
-        let root_str = self.repo_root.to_string_lossy().to_string();
-        let mut cmd = tokio::process::Command::new("node");
-        cmd.arg("bot/index.js")
-            .current_dir(&self.repo_root)
-            .env("ATERKEEP_BOT_DIR", &root_str)
-            // Master parolayi cocuk surece MIRAS BIRAKMA. Bot, mineflayer ile
-            // birlikte genis bir npm bagimlilik agaci calistiriyor; oradaki
-            // herhangi bir paket `process.env` okuyabilir. Botun bu parolaya
-            // hicbir ihtiyaci yok.
-            .env_remove("ATERKEEP_KEY");
-        // Bot ciktisi bir dosyaya yazilir. Onceden /dev/null'a gidiyordu: bot
-        // sunucudan atildiginda ya da baglanamadiginda geriye hicbir iz kalmiyor,
-        // "bot girmiyor" sikayetinin sebebini gormek imkansiz oluyordu. Daemon'in
-        // kendi loguna karismasin diye ayri dosya.
-        let (out, err) = match Self::open_bot_log(&self.repo_root) {
-            Some(pair) => pair,
-            None => (std::process::Stdio::null(), std::process::Stdio::null()),
-        };
-        cmd.stdout(out).stderr(err);
-        // kill_on_drop: BotManager drop olursa child da olmesi icin sinyal
-        // (daemon cikinca bot da ciksin). Windows'ta drop -> kill degildir ama
-        // stop() acik kill cagirir.
-        cmd.kill_on_drop(true);
-        cmd.spawn().map_err(|e| format!("node spawn hatasi: {e}"))
-    }
-
-    /// Bot surecini oldurur ve handle'i temizler.
+    /// Bot gorevini durdurur.
+    ///
+    /// Once bayragi set edip gorevin KENDI kapanmasini bekliyoruz; bot bu
+    /// sirada durumu `stopped` yaziyor ve varsa acik soketi kapatiyor. Dogrudan
+    /// `abort()` etmek bunlari atlar ve panelde eski durum asili kalir.
+    /// Bekleme sinirli: takilirsa yine de abort ediyoruz.
     pub async fn stop(&self) {
-        let mut child_guard = self.child.lock().await;
-        if let Some(mut child) = child_guard.take() {
-            // once normal kill (SIGTERM/Linux, TerminateProcess/Windows)
-            let _ = child.start_kill();
-            // best-effort bekle — surec olmezse orphan kalir ama daemon cikinca
-            // kill_on_drop tetiklenir.
-            let _ = tokio::time::timeout(std::time::Duration::from_secs(2), child.wait()).await;
+        let mut guard = self.running.lock().await;
+        if let Some(r) = guard.take() {
+            r.stop.store(true, Ordering::Relaxed);
+            if tokio::time::timeout(std::time::Duration::from_secs(3), r.handle)
+                .await
+                .is_err()
+            {
+                eprintln!("[bot] gorev zamaninda kapanmadi");
+            }
         }
         eprintln!("[bot] durduruldu");
     }
 
-    /// Bot sureci hala yasiyor mu? (try_wait: bazilari exited olabilir)
+    /// Bot gorevi hala yasiyor mu?
     pub async fn is_running(&self) -> bool {
-        let mut child_guard = self.child.lock().await;
-        if let Some(child) = child_guard.as_mut() {
-            match child.try_wait() {
-                Ok(None) => true,
-                _ => {
-                    // exited — handle'i temizle
-                    *child_guard = None;
-                    false
-                }
+        let mut guard = self.running.lock().await;
+        match guard.as_ref() {
+            Some(r) if !r.handle.is_finished() => true,
+            Some(_) => {
+                // bitmis — handle'i temizle
+                *guard = None;
+                false
             }
-        } else {
-            false
+            None => false,
         }
     }
 
@@ -316,9 +289,8 @@ impl BotManager {
 
         json!({
             "enabled": cfg.enabled,
-            // Panel "etkin mi?" ile "sureci yasiyor mu?" ayrimini gosterir.
+            // Panel "etkin mi?" ile "gorev yasiyor mu?" ayrimini gosterir.
             "running": running,
-            "node_available": node_available(),
             "state": state,
             "name": cfg.name,
             "host": cfg.host,
@@ -332,24 +304,9 @@ impl BotManager {
     }
 }
 
-/// `node` calistirilabilir durumda mi? Bot Node.js gerektirir (mineflayer);
-/// yoksa spawn sessizce basarisiz olur ve panelde sebebi gorunmez. Panel bu
-/// bilgiyi gosterip kullaniciyi "npm install"e yonlendirir.
-///
-/// Sonuc process omru boyunca cache'lenir — panel bu ucu 4 saniyede bir
-/// cagiriyor, her seferinde surec spawn etmek israf olur.
-pub fn node_available() -> bool {
-    static CACHE: std::sync::OnceLock<bool> = std::sync::OnceLock::new();
-    *CACHE.get_or_init(|| {
-        std::process::Command::new("node")
-            .arg("--version")
-            .stdout(std::process::Stdio::null())
-            .stderr(std::process::Stdio::null())
-            .status()
-            .map(|s| s.success())
-            .unwrap_or(false)
-    })
-}
+// node_available() KALDIRILDI: bot artik daemon'in icinde, Node.js gerekmiyor.
+// Panelde "Node.js: mevcut/EKSIK" satiri da kaldirildi — her zaman "mevcut"
+// yazan bir satir, satiri hic gostermemekten daha kotuydu.
 
 /// Kolaylik: AppCtx ve keepalive her yerde Arc<BotManager> tasiyor.
 pub type SharedBot = Arc<BotManager>;

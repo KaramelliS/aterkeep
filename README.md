@@ -54,18 +54,23 @@
 aterkeep is a single self-contained binary — one file, no runtime to install.
 It does shell out to **`curl`**, which ships with Windows 10+, macOS and most
 Linux distributions (`pkg install curl` on Termux). That is the only external
-requirement.
+requirement. The Android APK carries its own static curl, so there is nothing to
+install there either.
+
+The anti-idle bot is compiled **into** the binary — no Node.js, no npm. It used
+to be a Node program, which is why older docs mention installing Node; that is no
+longer true anywhere.
 
 | Platform | Notes |
 |---|---|
 | **Windows** | 10/11 — `aterkeep.exe`, double-click or run from PowerShell/cmd. |
 | **Linux** | x86_64 — `./aterkeep`. |
 | **macOS** | Apple Silicon — `./aterkeep`. |
-| **Android** | Via [Termux](docs/TERMUX.md) — builds from source only; no prebuilt binary. |
+| **Android** | arm64 — install the [APK](docs/ANDROID.md); it runs the daemon in a foreground service. A [Termux](docs/TERMUX.md) route exists for shell users. |
 
 ## Requirements
 
-- **Windows, Linux, macOS, or Android** (the latter via Termux — see the [Termux guide](docs/TERMUX.md))
+- **Windows, Linux, macOS, or Android** (Android: the [APK](docs/ANDROID.md), or [Termux](docs/TERMUX.md) if you want a shell)
 - Rust toolchain (only needed to build from source; release binaries ship without it)
 
 ## Install
@@ -79,15 +84,16 @@ Download the right binary for your OS from the [Releases](../../releases) page:
 | Windows 10/11 | `aterkeep-windows.exe` |
 | Linux x86_64 | `aterkeep-linux-amd64` |
 | macOS (Apple Silicon) | `aterkeep-macos-arm64` |
-| — | `aterkeep-extras.zip` — the anti-idle bot, autostart installers and docs |
+| Android (arm64/arm32/x86_64) | `aterkeep-android.apk` — install and run, no shell needed |
+| Android (Termux) | `aterkeep-android-arm64` / `-armv7` / `-x86_64` — the bare daemon binary |
+| — | `aterkeep-extras.zip` — autostart installers and docs |
 
-**Download `aterkeep-extras.zip` too** if you want the bot or autostart, and
-unpack it next to the binary. The daemon alone cannot run the bot: it needs the
-`bot/` folder from that archive.
+`aterkeep-extras.zip` is optional; grab it if you want the autostart scripts. The
+anti-idle bot is **inside** the binary, so nothing extra is needed for it.
 
-Linux aarch64, macOS Intel and Android are **not** prebuilt — building them
-needs access to the private engine crate, so they are unavailable to buyers
-today. Do not plan around them.
+Linux aarch64 and macOS Intel are **not** prebuilt — building them needs access
+to the private engine crate, so they are unavailable to buyers today. Do not plan
+around them.
 
 On Linux/macOS/Android, make it executable after downloading:
 
@@ -303,26 +309,21 @@ machine (or malware running as your user) can read it. Keep the host clean.
 | Should start on boot | See [docs/AUTOSTART.md](docs/AUTOSTART.md) — scheduled task (Windows, DPAPI-protected), systemd unit (Linux), Termux:Boot (Android), each with its security tradeoff spelled out. |
 | Panel says the Aternos session expired | The cookies aged out — this is not a server fault. Press **Refresh cookies** in the banner and paste a fresh `cookie:` header. |
 | Port 4041 busy | A previous instance is still running. Kill it (`pkill aterkeep` / Task Manager), or change `port` in `config/aterkeep.json`. |
-| Running on Android? | See the dedicated [Termux guide](docs/TERMUX.md). |
+| Running on Android? | Install the [APK](docs/ANDROID.md). Prefer a shell? [Termux guide](docs/TERMUX.md). |
 
 ## Anti-Idle Bot (Opsiyonel)
 
-aterkeep, sunucuyu ayakta tutmak için gömülü bir **anti-idle botu** da barındırır — bir Minecraft istemcisi bağlıymış gibi davranır, görünmez (spectator + vanish) modda AFK kalır ve koparsa otomatik yeniden bağlanır. Böylece sunucu boş olduğu için durmaz. Bot [mineflayer](https://github.com/PrismarineJS/mineflayer) tabanlıdır ve daemon tarafından `node bot/index.js` olarak spawn edilir.
+aterkeep, sunucuyu ayakta tutmak için gömülü bir **anti-idle botu** barındırır — gerçek bir oyuncu gibi bağlanır, görünmez (spectator + vanish) modda AFK kalır ve koparsa otomatik yeniden bağlanır. Böylece sunucu boş olduğu için durmaz.
+
+Bot **binary'nin içinde**: kurulacak bir şey yok. (Eskiden mineflayer tabanlı bir Node.js programıydı; Node bir APK'nın içine sığmadığı için telefonda hiç çalışmıyordu ve masaüstünde de Node + geniş bir npm ağacı istiyordu. Yerel Rust istemcisiyle değiştirildi.)
 
 ### Gereksinimler
 
-- **Node.js** 18+ (bot'un çalıştığı makinede kurulu)
 - Sunucu **cracked** olmalı (`online-mode=false` — Aternos ücretsiz sunucuları varsayılan böyledir)
-- **Vanilla** yazılımı, **1.21.x** veya daha düşük sürüm
+- Sürüm **1.21.11 veya daha düşük** (bot protokol 774 konuşuyor)
+- Botun **gizlenebilmesi** için operatör yetkisi. Yetki yoksa bot spawn'da görünür durur — sunucuyu ayakta tutmaya devam eder ama görünmez olmaz, panel de bunu açıkça söyler.
 
-### Kurulum
-
-```bash
-cd bot
-npm install          # mineflayer'ı kurar (tek seferlik)
-```
-
-Ardından bot'ı **panel üzerinden** açıp kapatabilirsiniz — daemon `config/bot.json`'u yazar, bot durumunu `config/bot-status.json`'a raporlar. Ayrıntılı doküman: [`docs/BOT.md`](docs/BOT.md), bot README'si: [`bot/README.md`](bot/README.md).
+Bot'ı **panel üzerinden** açıp kapatırsınız; daemon `config/bot.json`'u yazar, bot durumunu `config/bot-status.json`'a raporlar. Elle çalıştırıp teşhis için: `aterkeep bot-probe <host> [port]`. Ayrıntılı doküman: [`docs/BOT.md`](docs/BOT.md).
 
 ## ⚠ Before you buy: Aternos' terms
 
