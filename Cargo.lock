@@ -100,7 +100,7 @@ dependencies = [
 [[package]]
 name = "aterkeep-core"
 version = "1.0.0"
-source = "git+https://github.com/KaramelliS/aterkeep-core.git?rev=97de850#97de8500a254a31c7f13e27e7fd3c22ebc0f39bd"
+source = "git+https://github.com/KaramelliS/aterkeep-core.git?rev=6225694#6225694c76883d597a27169a846c5331ebc6632c"
 dependencies = [
  "aes-gcm",
  "async-stream",
@@ -110,6 +110,7 @@ dependencies = [
  "hmac",
  "http",
  "litcrypt2",
+ "md5",
  "native-tls",
  "pbkdf2",
  "rand",
@@ -717,6 +718,12 @@ name = "matchit"
 version = "0.8.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "47e1ffaa40ddd1f3ed91f717a33c8c0ee23fff369e3aa8772b9605cc1d22f4c3"
+
+[[package]]
+name = "md5"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "490cc448043f947bae3cbee9c203358d62dbee0db12107a74be5c30ccfd09771"
 
 [[package]]
 name = "memchr"
