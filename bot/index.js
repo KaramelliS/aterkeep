@@ -36,12 +36,34 @@ const MAX_SUPPORTED_PROTOCOL = 774;
 const MAX_SUPPORTED_VERSION = '1.21.11';
 
 function loadConfig() {
+  // Her hatayi yutup {} donmek, botun sessizce localhost:25565'e baglanmaya
+  // calismasi demekti — kullanici "bot girmiyor" goruyor, sebebi hicbir yerde
+  // yazmiyordu. Node, utf8 okumada BOM'u KORUR ve JSON.parse BOM'da patlar;
+  // bu bir kez gercekten basimiza geldi (PowerShell ile yazilmis bot.json).
+  let raw;
   try {
-    const raw = fs.readFileSync(CONFIG_PATH, 'utf8');
+    raw = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^﻿/, '');
+  } catch (e) {
+    fail(`bot.json okunamadi (${CONFIG_PATH}): ${e.message}`);
+  }
+  try {
     return JSON.parse(raw);
   } catch (e) {
-    return {};
+    fail(`bot.json bozuk JSON (${CONFIG_PATH}): ${e.message}`);
   }
+}
+
+/// Durumu yaz, sebebi soyle ve CIK. Yanlis sunucuya baglanmaya calismaktansa
+/// panelde gorunur bir hatayla durmak dogrudur.
+function fail(msg) {
+  try {
+    fs.mkdirSync(path.dirname(STATUS_PATH), { recursive: true });
+    fs.writeFileSync(STATUS_PATH, JSON.stringify({
+      ts: Date.now(), connected: false, state: 'error', error: msg,
+    }, null, 2));
+  } catch (_) {}
+  console.error(`[aterkeep-bot] ${msg}`);
+  process.exit(1);
 }
 
 function writeStatus(patch) {
@@ -52,7 +74,11 @@ function writeStatus(patch) {
     // dosyadan okunan eski `cur.ts` onu her seferinde eziyordu — durum yillarca
     // "ilk yazim" zamanini gostermeye devam ederdi.
     const next = Object.assign({}, cur, patch, { ts: Date.now() });
-    fs.writeFileSync(STATUS_PATH, JSON.stringify(next, null, 2));
+    // ATOMIK: daemon bu dosyayi ayni anda okuyor; dogrudan uzerine yazmak
+    // yarim JSON okutup "durum bilinmiyor"a dusuruyordu.
+    const tmp = `${STATUS_PATH}.tmp`;
+    fs.writeFileSync(tmp, JSON.stringify(next, null, 2));
+    fs.renameSync(tmp, STATUS_PATH);
   } catch (e) {}
 }
 
@@ -100,12 +126,22 @@ let activityTimer = null;
 let spawnTimer = null;
 let reconnectPending = false;
 let deadTimer = null;
+let retryTimer = null;
+let connecting = false;
 
+/// TUM yeniden baglanma zamanlayicilari burada izlenir ve cleanup() hepsini
+/// iptal eder. Izlenmeyen bir setTimeout, kapatilmis bir botu geri getirip
+/// AYNI ANDA IKI BOT calistiriyordu; ikisi ayni kullanici adiyla girdigi icin
+/// birbirini atiyor ve sonsuz bir gir-cik dongusu olusuyordu.
 function scheduleReconnect() {
   if (reconnectPending) return;
   reconnectPending = true;
   cleanup();
-  setTimeout(() => { reconnectPending = false; connect(); }, RETRY_MS);
+  retryTimer = setTimeout(() => {
+    retryTimer = null;
+    reconnectPending = false;
+    connect();
+  }, RETRY_MS);
 }
 
 function scheduleDead() {
@@ -116,10 +152,10 @@ function scheduleDead() {
 
 function pingServer() {
   const t0 = Date.now();
-  return Promise.race([
-    mcPing({ host: HOST, port: PORT }),
-    new Promise((_, reject) => setTimeout(() => reject(new Error('ping-timeout')), PING_TIMEOUT_MS)),
-  ])
+  // closeTimeout: Promise.race yalnizca SOZU yaristiriyordu; alttaki soket
+  // acik kaliyor ve zamanlayici temizlenmiyordu, yani her basarisiz ping bir
+  // sizinti birakiyordu. Kutuphanenin kendi zaman asimi soketi de kapatir.
+  return mcPing({ host: HOST, port: PORT, closeTimeout: PING_TIMEOUT_MS })
     .then((info) => {
       // Sureyi logla: ping sinirinin dogru olup olmadigini bir daha tahmin
       // etmek zorunda kalmayalim.
@@ -150,7 +186,9 @@ function humanActivity() {
   if (!bot || !bot.entity) return;
   if (VANISHED) {
     if (Math.random() < 0.4) {
-      bot.look(Math.random() * Math.PI * 2, (Math.random() - 0.5) * 1.2, true);
+      // look() bir soz doner; reddi yakalanmazsa global
+      // unhandledRejection'a dusup gereksiz bir yeniden baglanma tetikliyordu.
+      bot.look(Math.random() * Math.PI * 2, (Math.random() - 0.5) * 1.2, true).catch(() => {});
     }
     return;
   }
@@ -164,7 +202,7 @@ function humanActivity() {
     bot.setControlState(dir, true);
     setTimeout(() => bot.setControlState(dir, false), 500 + Math.random() * 900);
   } else if (roll < 0.75) {
-    bot.look(Math.random() * Math.PI * 2, (Math.random() - 0.5) * 1.2, true);
+    bot.look(Math.random() * Math.PI * 2, (Math.random() - 0.5) * 1.2, true).catch(() => {});
   } else if (roll < 0.85) {
     bot.setControlState('sneak', true);
     setTimeout(() => bot.setControlState('sneak', false), 400 + Math.random() * 700);
@@ -184,11 +222,16 @@ function stopActivity() {
 }
 
 function connect() {
+  // Ayni anda iki baglanti denemesi olmasin: ping ~12 saniye surebiliyor ve o
+  // arada gelen ikinci bir cagri ikinci bir bot uretirdi.
+  if (connecting) return;
+  connecting = true;
   pingServer().then((info) => {
     const proto = info && info.version && info.version.protocol;
     if (!proto || proto < 1) {
       log(`sunucu cevap vermiyor (kapali/sirada) — ${DEAD_RETRY_MS / 1000}sn sonra tekrar`);
-      writeStatus({ connected: false, state: 'waiting', server_protocol: null });
+      writeStatus({ connected: false, state: 'waiting', server_protocol: null, error: null, error_code: null });
+      connecting = false;
       scheduleDead();
       return;
     }
@@ -206,10 +249,17 @@ function connect() {
         error: `Server ${vname} desteklenmiyor. Bot en fazla ${MAX_SUPPORTED_VERSION} surumunu destekler. Aternos panelinde Yazılım > Vanilla ${MAX_SUPPORTED_VERSION} secin.`,
       });
       // desteklenmeyen surumde tekrar deneme — bossa bekle
-      setTimeout(() => connect(), 60000);
+      connecting = false;
+      clearTimeout(retryTimer);
+      retryTimer = setTimeout(() => { retryTimer = null; connect(); }, 60000);
       return;
     }
+    connecting = false;
     spawnBot(info);
+  }).catch((e) => {
+    connecting = false;
+    log(`baglanti hazirligi hatasi: ${e && e.message ? e.message : e}`);
+    scheduleDead();
   });
 }
 
@@ -263,14 +313,14 @@ function spawnBot(info) {
       // 8 saniyede bir bosuna baglanip sunucuyu mesgul etme; ayar degisirse
       // bir dakika icinde kendiliginden girsin.
       cleanup();
-      setTimeout(connect, 60000);
+      retryTimer = setTimeout(() => { retryTimer = null; connect(); }, 60000);
       return;
     }
     writeStatus({ connected: false, state: 'kicked', error_code: null, error: raw });
     scheduleReconnect();
   });
   bot.on('error', (err) => { log(`hata: ${err.message || err}`); writeStatus({ connected: false, state: 'error', error: err.message || String(err) }); scheduleReconnect(); });
-  bot.on('end', () => { log('baglanti koptu'); writeStatus({ connected: false, state: 'disconnected' }); scheduleReconnect(); });
+  bot.on('end', () => { log('baglanti koptu'); writeStatus({ connected: false, state: 'disconnected', error: null, error_code: null }); scheduleReconnect(); });
 
   armSpawnTimeout();
 }
@@ -279,6 +329,8 @@ function cleanup() {
   stopActivity();
   clearTimeout(spawnTimer);
   if (deadTimer) { clearTimeout(deadTimer); deadTimer = null; }
+  if (retryTimer) { clearTimeout(retryTimer); retryTimer = null; }
+  connecting = false;
   if (bot) { try { bot.quit(); } catch (e) {} bot.removeAllListeners(); bot = null; }
 }
 
