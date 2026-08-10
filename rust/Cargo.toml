@@ -12,7 +12,7 @@ publish = false
 # Public repo bunu dependency olarak çeker; kaynak public repoda DEĞİL.
 # Local derleme için GitHub auth gerekir (gh auth / git credential helper).
 # CI deploy key ile erişir. Son kullanıcı hazır binary indirir (derlemez).
-aterkeep-core = { git = "https://github.com/KaramelliS/aterkeep-core.git", rev = "14641a1" }
+aterkeep-core = { git = "https://github.com/KaramelliS/aterkeep-core.git", rev = "40c1c32" }
 tokio = { version = "1", features = ["full"] }
 axum = "0.8"
 serde = { version = "1", features = ["derive"] }

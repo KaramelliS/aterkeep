@@ -1,6 +1,14 @@
 # aterkeep on Android (Termux)
 
-Run the aterkeep keep-alive daemon on your phone with [Termux](https://termux.dev/). The daemon builds into a single native binary for `aarch64-linux-android`, so it needs no emulator — it runs straight on the ARM CPU.
+Run the aterkeep keep-alive daemon on your phone with [Termux](https://termux.dev/). It is a single native `aarch64-linux-android` binary, so it needs no emulator — it runs straight on the ARM CPU.
+
+> **Most people should install the [APK](ANDROID.md) instead.** It carries the same
+> daemon, needs no shell and no package installs, and — the part that matters —
+> runs it inside a **foreground service**, which is the only reliable way to keep a
+> process alive on modern Android. A daemon started from a Termux shell is an
+> untracked child process, and since Android 12 the system reaps those; that is
+> still true on Android 15 even with `termux-wake-lock` held. Use Termux if you
+> specifically want a shell; use the APK if you want it to stay up.
 
 > **Prerequisites:** an Android device you control, and your Aternos account login (https://aternos.org) ready. You do **not** need root.
 
@@ -57,20 +65,35 @@ Then follow the build steps below from inside the Ubuntu session. The resulting 
 
 ---
 
-## 3. Build aterkeep
+## 3. Get the binary
+
+### Option A — download it (what you want)
+
+```bash
+cd ~
+curl -fsSLO https://github.com/KaramelliS/aterkeep/releases/latest/download/aterkeep-android-arm64
+mv aterkeep-android-arm64 aterkeep
+chmod +x aterkeep
+./aterkeep --version
+```
+
+### Option B — build from source
+
+Only possible with read access to the private
+[`aterkeep-core`](https://github.com/KaramelliS/aterkeep-core) crate, which the
+build pulls as a git dependency. **Without that access this build fails**, so if
+you are not the maintainer, use Option A.
 
 ```bash
 git clone https://github.com/KaramelliS/aterkeep.git
 cd aterkeep
 cargo build --release --manifest-path rust/Cargo.toml
-```
-
-The binary lands at `target/release/aterkeep`. Run it from anywhere — copy it somewhere convenient:
-
-```bash
 cp target/release/aterkeep ~/aterkeep
 cd ~
 ```
+
+Building needs the `rust clang make` packages from step 2 and roughly 2 GB of
+free space.
 
 ---
 
@@ -81,6 +104,22 @@ On first run aterkeep walks you through entering your Aternos session interactiv
 ```bash
 ./aterkeep
 ```
+
+> **Prefer the web wizard — it is the only one that can renew your session.**
+> The terminal wizard below only accepts pasted cookies; it stores no account
+> credentials, so when the session expires in ~30 days it cannot log back in and
+> you have to repeat this by hand. The web wizard also offers **Aternos account
+> login**, after which aterkeep signs in again by itself.
+>
+> The terminal wizard runs only when stdin is a TTY, so detach stdin to get the
+> web one:
+>
+> ```bash
+> ./aterkeep < /dev/null
+> ```
+>
+> Then open **http://127.0.0.1:4041** in the phone's browser and complete setup
+> there. Everything after this section still applies.
 
 You'll be prompted for three values:
 
@@ -169,9 +208,18 @@ Alternatives for a persistent session:
 
 ## 7. Access from another device (optional, same Wi-Fi)
 
-aterkeep binds to `127.0.0.1` only by default, so the panel is reachable just from the phone itself. A `ATERKEEP_HOST=0.0.0.0` option to expose the panel on your local network is **coming soon** — it is not available yet in the current build.
+aterkeep binds to `127.0.0.1` only by default, so the panel is reachable just from the phone itself. To expose it on your local network, set `bind` in `config/aterkeep.json` and restart the daemon:
 
-> **Security note (for when it ships):** binding to `0.0.0.0` exposes the dashboard to anyone on the same Wi-Fi, and the session cookies are decryptable on that machine. Only enable it on a trusted home network, never on public Wi-Fi.
+```json
+{
+  "bind": "0.0.0.0",
+  "port": 4041
+}
+```
+
+The daemon prints a warning on startup whenever `bind` is not loopback, so you can tell at a glance whether the panel is exposed. Then reach it at `http://<phone-ip>:4041` — `ip addr show wlan0` gives you the address.
+
+> **Security note:** binding to `0.0.0.0` exposes the dashboard to anyone on the same Wi-Fi, and the session cookies are decryptable on that machine. The panel password is the only thing in the way. Only do this on a trusted home network, never on public Wi-Fi.
 
 ---
 

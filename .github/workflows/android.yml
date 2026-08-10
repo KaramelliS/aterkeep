@@ -1,0 +1,173 @@
+name: android
+
+on:
+  push:
+    branches: [main, android]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+  # Statik curl surumu ve binary'nin sha256'si SABITLENDI. CI'nin dogrulanmamis
+  # bir calistirilabilir cekip APK'ya gommesi kabul edilemez; surum degisirse
+  # checksum patlar ve bilerek guncellemek gerekir.
+  CURL_VERSION: "8.21.0"
+  CURL_SHA256: "1cd1df1734854a9a427ea012e36306980f256c1a03afed1f1f552d790ff474ae"
+  # Rust/NDK derleme API seviyesi minSdk ile AYNI olmali (app/build.gradle.kts).
+  # Daha yuksegi, minSdk'i karsilayan cihazlarda cozulmeyen sembol demek.
+  NDK_API: "26"
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust toolchain + android target
+        run: |
+          rustup default stable
+          rustup target add aarch64-linux-android
+
+      - name: Install cargo-ndk
+        run: cargo install cargo-ndk --locked
+
+      # aterkeep-core PRIVATE repo'dan cekiliyor (bkz. build.yml'deki ayni not).
+      # Fork PR'lari secret gormez; o durumda derleme atlanir.
+      - name: Configure private crate access
+        if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+        run: git config --global url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf https://github.com/KaramelliS/aterkeep-core.git
+
+      # Vendored OpenSSL burada kaynaktan derleniyor (core/Cargo.toml'daki
+      # android hedefi). perl + make ubuntu runner'da mevcut.
+      - name: Build daemon for aarch64-linux-android
+        if: github.event.pull_request.head.repo.full_name == github.repository || github.event_name != 'pull_request'
+        run: cargo ndk -t arm64-v8a -p ${{ env.NDK_API }} build --release --manifest-path rust/Cargo.toml
+
+      - name: Revoke private crate credential
+        if: always()
+        run: git config --global --unset-all url."https://x-access-token:${{ secrets.ATERKEEP_CORE_TOKEN }}@github.com/KaramelliS/aterkeep-core.git".insteadOf || true
+
+      - name: Verify daemon is an aarch64 ELF
+        run: |
+          set -eu
+          BIN=target/aarch64-linux-android/release/aterkeep
+          test -f "$BIN"
+          file "$BIN"
+          file "$BIN" | grep -q 'ARM aarch64'
+          ls -la "$BIN"
+
+      # Statik curl. NEDEN GEREKLI: core/http.rs butun Aternos isteklerini curl
+      # ile atiyor cunku curl'un TLS parmakizi Cloudflare'i geciyor (reqwest 403
+      # aliyordu). APK icinde PATH'te curl yok, Termux'un curl'u de kullanilamaz
+      # (Termux prefix'ine dinamik bagli). Bu binary static-PIE: Android'in PIE
+      # zorunlulugunu karsiliyor ve bionic'e ihtiyac duymuyor.
+      - name: Fetch static aarch64 curl
+        run: |
+          set -eu
+          url="https://github.com/stunnel/static-curl/releases/download/${CURL_VERSION}/curl-linux-aarch64-musl-${CURL_VERSION}.tar.xz"
+          curl -fsSL -o curl.tar.xz "$url"
+          tar -xJf curl.tar.xz curl
+          echo "${CURL_SHA256}  curl" | sha256sum -c -
+          file curl
+          file curl | grep -q 'ARM aarch64'
+          # static-PIE olmali: dinamik yorumlayici (interpreter) OLMAMALI.
+          # Android'de /lib/ld-musl yok; dinamik bir binary aninda olurdu.
+          if file curl | grep -q 'dynamically linked'; then
+            echo "BEKLENMEYEN: curl dinamik bagli — Android'de calismaz" >&2
+            exit 1
+          fi
+
+      # curl.se CA demeti. Hem statik curl'un `--cacert`i hem vendored
+      # OpenSSL'in SSL_CERT_FILE'i icin: ikisinin de gomulu sertifika yolu
+      # Android'de mevcut degil.
+      - name: Fetch CA bundle
+        run: |
+          set -eu
+          curl -fsSL -o cacert.pem https://curl.se/ca/cacert.pem
+          # Bir HTML hata sayfasi indirip sertifika sanmayalim.
+          head -1 cacert.pem
+          grep -q 'BEGIN CERTIFICATE' cacert.pem
+          wc -c cacert.pem
+
+      - name: Stage binaries into the app
+        run: |
+          set -eu
+          mkdir -p android/app/src/main/jniLibs/arm64-v8a
+          mkdir -p android/app/src/main/assets
+          cp target/aarch64-linux-android/release/aterkeep android/app/src/main/jniLibs/arm64-v8a/libaterkeep.so
+          cp curl android/app/src/main/jniLibs/arm64-v8a/libcurlx.so
+          cp cacert.pem android/app/src/main/assets/cacert.pem
+          ls -la android/app/src/main/jniLibs/arm64-v8a/
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+
+      - name: Assemble APK
+        working-directory: android
+        run: gradle --no-daemon assembleRelease
+
+      - name: Locate APK
+        id: apk
+        run: |
+          set -eu
+          path=$(find android/app/build/outputs/apk -name '*.apk' | head -1)
+          test -n "$path"
+          echo "path=$path" >> "$GITHUB_OUTPUT"
+          ls -la "$path"
+          # Binary'ler APK'ya SIKISTIRILMAMIS ("Stored") girmis mi?
+          # Sikistirilmis girerlerse nativeLibraryDir'e ACILMAZLAR ve exec
+          # edilecek dosya olmaz — uygulama kurulur, acilir, hicbir sey yapmaz.
+          # Sessiz basarisizlik olacagi icin varligini degil, YONTEMINI dogrula.
+          # (useLegacyPackaging=true bunu saglar; bu kontrol onun bozulmadigini
+          # ispatlar.)
+          unzip -v "$path" | grep -E 'libaterkeep\.so|libcurlx\.so'
+          for lib in libaterkeep.so libcurlx.so; do
+            if ! unzip -v "$path" | grep "$lib" | grep -qw Stored; then
+              echo "HATA: $lib APK icinde sikistirilmis — nativeLibraryDir'e acilmaz" >&2
+              exit 1
+            fi
+          done
+          # cacert.pem assets'te olmali; yoksa her TLS dogrulamasi cihazda patlar.
+          unzip -l "$path" | grep -q 'assets/cacert.pem'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aterkeep-android-arm64
+          path: ${{ steps.apk.outputs.path }}
+
+      # Ciplak daemon binary'si de yayinlanir. Bunu ATLAMAK, docs/TERMUX.md'yi
+      # alicilar icin yalan yapiyordu: rehber `cargo build` diyor, o derleme
+      # private aterkeep-core crate'ini cekiyor ve erisimi olmayan herkeste
+      # basarisiz oluyor. Hazir binary olunca Termux yolu gercekten izlenebilir.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: aterkeep-android-arm64-bin
+          path: target/aarch64-linux-android/release/aterkeep
+
+  release:
+    needs: apk
+    if: startsWith(github.ref, 'refs/tags/v')
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: aterkeep-android-arm64
+      - name: Attach APK to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          apk=$(find . -name '*.apk' | head -1)
+          mv "$apk" aterkeep-android-arm64.apk
+          gh release upload "${GITHUB_REF_NAME}" aterkeep-android-arm64.apk --clobber --repo "${GITHUB_REPOSITORY}"

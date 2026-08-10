@@ -1,0 +1,16 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Adaptive icon'un guvenli alani ortadaki 72dp; sekil o alanda tutuldu ki
+         cihaz maskesi (daire, squircle, kare) kenarlardan kirpmasin. -->
+    <group android:translateX="30" android:translateY="30">
+        <path
+            android:fillColor="#2EA043"
+            android:pathData="M24,2L6,11v12.4C6,32.6 13.6,40.4 24,42c10.4,-1.6 18,-9.4 18,-18.6V11L24,2z" />
+        <path
+            android:fillColor="#0E1116"
+            android:pathData="M21.2,30.8l-5.8,-5.8l2.8,-2.8l3,3l8.6,-8.6l2.8,2.8z" />
+    </group>
+</vector>
