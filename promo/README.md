@@ -19,6 +19,29 @@ Seven scenes: the problem, the automatic queue confirmation (the thing a plain
 keep-alive script cannot do), sign-in, the live panel, the feature set, and the
 purchase call to action.
 
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-en.mp4" controls width="100%">
+    <a href="video/aterkeep-en.mp4">Watch the 30-second overview</a>
+  </video>
+</p>
+
+### Embedding one somewhere else
+
+GitHub will play a video inline, but **not** from a `raw.githubusercontent.com`
+or release-download URL — both are served as `application/octet-stream` with
+`nosniff`, so the player refuses them. Point the tag at the CDN instead:
+
+```html
+<video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-en.mp4"
+       controls width="100%">
+  <a href="promo/video/aterkeep-en.mp4">Watch the 30-second overview</a>
+</video>
+```
+
+GitHub's sanitizer keeps `src`, `controls` and `width`; it strips `poster`,
+`preload` and `autoplay`, so don't bother with them. Always leave a plain link
+inside the tag — that is what shows if the CDN is unreachable.
+
 | | | | |
 |---|---|---|---|
 | [English](video/aterkeep-en.mp4) | [Türkçe](video/aterkeep-tr.mp4) | [Deutsch](video/aterkeep-de.mp4) | [Français](video/aterkeep-fr.mp4) |

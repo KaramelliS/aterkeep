@@ -10,6 +10,21 @@
   <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-de.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-de.mp4">Sieh dir die 30-Sekunden-Ubersicht an</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>Sieh dir die 30-Sekunden-Ubersicht an.</b> Wird nicht abgespielt? <a href="promo/video/aterkeep-de.mp4">Video herunterladen</a>.<br/>
+  Andere Sprachen: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
+
+---
+
 ## Funktionen
 
 - **Automatische Warteschlangen-Bestätigung** — wenn du an der Reihe bist, öffnet Aternos ein ~30-Sekunden-Fenster; antwortet niemand, landest du hinten. Dieser Schritt macht den unbeaufsichtigten 24/7-Betrieb überhaupt erst möglich.

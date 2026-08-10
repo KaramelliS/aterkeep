@@ -10,6 +10,21 @@
   <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-ru.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-ru.mp4">Посмотрите 30-секундный обзор</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>Посмотрите 30-секундный обзор.</b> Не воспроизводится? <a href="promo/video/aterkeep-ru.mp4">Скачать видео</a>.<br/>
+  Другие языки: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
+
+---
+
 ## Возможности
 
 - **Автоматическое подтверждение очереди** — когда подходит ваша очередь, Aternos открывает окно примерно на 30 секунд; без ответа вы возвращаетесь в конец. Именно этот шаг делает возможной работу 24/7 без присмотра.

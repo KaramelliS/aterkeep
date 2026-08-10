@@ -10,6 +10,21 @@
   <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-pt.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-pt.mp4">Assista a visao geral de 30 segundos</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>Assista a visao geral de 30 segundos.</b> Nao reproduz? <a href="promo/video/aterkeep-pt.mp4">Baixe o video</a>.<br/>
+  Outros idiomas: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
+
+---
+
 ## Recursos
 
 - **Confirmação automática da fila** — quando chega a tua vez, o Aternos abre uma janela de cerca de 30 segundos; sem resposta voltas para o fim. É este passo que torna o 24/7 sem supervisão possível.
