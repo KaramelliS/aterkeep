@@ -164,6 +164,9 @@ const EN: T = &[
     ("st_unknown", "status unavailable — check the log"),
     ("refresh_fail", "status refresh failed"),
     ("ui_error", "Interface error"),
+    ("session_age", "session age"),
+    ("session_never", "not measured yet"),
+    ("session_last", "previous session lasted"),
     ("st_session_expired", "Aternos session expired — the cookies need refreshing"),
     (
         "session_expired_warn",
@@ -382,6 +385,9 @@ const TR: T = &[
     ("st_unknown", "durum alınamadı — log'a bak"),
     ("refresh_fail", "durum yenilenemedi"),
     ("ui_error", "Arayüz hatası"),
+    ("session_age", "oturum yaşı"),
+    ("session_never", "henüz ölçülmedi"),
+    ("session_last", "önceki oturum dayandı"),
     ("st_session_expired", "Aternos oturumu düştü — çerezlerin yenilenmesi gerekiyor"),
     (
         "session_expired_warn",

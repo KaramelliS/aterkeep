@@ -236,12 +236,16 @@ async fn logo_svg() -> impl IntoResponse {
     )
 }
 
-async fn api_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoResponse {
-    // anlik durum: son cekim 2sn'den eskiyse gercek bir start() cagir (throttle)
-    let now = std::time::SystemTime::now()
+pub fn now_unix() -> u64 {
+    std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs())
-        .unwrap_or(0);
+        .unwrap_or(0)
+}
+
+async fn api_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoResponse {
+    // anlik durum: son cekim 2sn'den eskiyse gercek bir start() cagir (throttle)
+    let now = now_unix();
     {
         let mut s = ctx.state.lock().await;
         let stale = now.saturating_sub(s.last_poll) >= 2;
@@ -290,6 +294,13 @@ async fn api_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoRes
             }
         });
     }
+    let (session_age, last_lifetime) = {
+        let cfg = ctx.cfg.lock().await;
+        (
+            cfg.session_started.map(|t| now.saturating_sub(t)),
+            cfg.last_session_lifetime,
+        )
+    };
     Json(json!({
         "state": s.server_state,
         "auto": s.auto,
@@ -310,6 +321,11 @@ async fn api_status(ctx: Arc<AppCtx>, _: axum::extract::Request) -> impl IntoRes
         // Cerezler gecersizse panel bunu "sunucu kapali" diye degil, ne
         // yapilmasi gerektigini soyleyerek gosterir (bkz. app.js).
         "session_expired": s.session_expired,
+        // Cerezlerin kac saniyedir ayakta oldugu ve bir onceki oturumun ne
+        // kadar dayandigi. Aternos cerez omrunu ilan etmedigi icin bu sayilar
+        // tahminin yerini alan tek gercek veri.
+        "session_age": session_age,
+        "last_session_lifetime": last_lifetime,
     }))
 }
 
@@ -905,6 +921,10 @@ async fn api_setup(Json(body): Json<Value>) -> impl IntoResponse {
             cfg.lang = lang.to_string();
         }
     }
+    // Cerezlerin girildigi ani yaz: oturumun ne kadar dayandigini olcmenin
+    // baslangic noktasi bu. Aternos cerez omrunu ilan etmiyor; tahmin etmek
+    // yerine her kurulumda kendi verimizi topluyoruz.
+    cfg.session_started = Some(now_unix());
     if let Err(e) = cfg.save() {
         return Json(json!({ "ok": false, "error": format!("config yazilamadi: {e}") }));
     }

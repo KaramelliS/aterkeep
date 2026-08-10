@@ -70,6 +70,23 @@ pub struct AppConfig {
     pub bind: String,
     /// Kurulumda olusturulur. None ise panel korumasizdir (eski kurulumlar).
     pub auth: Option<Auth>,
+
+    // --- Oturum omru olcumu ---
+    //
+    // "Aternos cerezleri ne kadar dayanir?" sorusunun BAKILABILECEK bir cevabi
+    // yok: Aternos bunu ilan etmiyor, cerez giriste veriliyor ve pratik omru
+    // baska yerden giris yapmak, IP degistirmek gibi seylerden etkileniyor.
+    // Tahmin etmek yerine olcuyoruz: cerezlerin ne zaman girildigini yaziyoruz,
+    // ne zaman gecersizlestigini zaten tespit ediyoruz (bkz. ERR_SESSION_EXPIRED),
+    // aradaki fark cevabin ta kendisi.
+    /// Cerezlerin kuruluma girildigi an (unix saniye).
+    #[serde(default)]
+    pub session_started: Option<u64>,
+    /// Bir onceki oturumun kac saniye dayandigi. Panel bunu "gecen sefer N gun
+    /// dayandi" diye gosterir; kullanici ne siklikta yenilemesi gerektigini
+    /// tahmin yerine kendi verisinden ogrenir.
+    #[serde(default)]
+    pub last_session_lifetime: Option<u64>,
 }
 
 impl Default for AppConfig {
@@ -82,6 +99,8 @@ impl Default for AppConfig {
             port: 4041,
             bind: "127.0.0.1".into(),
             auth: None,
+            session_started: None,
+            last_session_lifetime: None,
         }
     }
 }
