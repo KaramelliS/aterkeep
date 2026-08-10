@@ -6,6 +6,7 @@ file — download it and use it. Nothing needs to be built.
 | File | What it is |
 |---|---|
 | `video/aterkeep-<lang>.mp4` | **Product video, one per language** (14). 1920×1080, H.264, ~30s, ~350 KB. |
+| `gif/aterkeep-<lang>.gif` | The same 30 seconds as an animated GIF (14). 720px, ~700 KB. For READMEs. |
 | `logo.svg` | Brand mark, scalable, no text dependency. |
 | `social.svg` | 1200×630 social / OG preview card. |
 
@@ -20,27 +21,45 @@ keep-alive script cannot do), sign-in, the live panel, the feature set, and the
 purchase call to action.
 
 <p align="center">
-  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-en.mp4" controls width="100%">
-    <a href="video/aterkeep-en.mp4">Watch the 30-second overview</a>
-  </video>
+  <a href="video/aterkeep-en.mp4"><img src="gif/aterkeep-en.gif" alt="aterkeep - 30-second overview" width="100%"/></a>
 </p>
 
-### Embedding one somewhere else
+## The GIF previews
 
-GitHub will play a video inline, but **not** from a `raw.githubusercontent.com`
-or release-download URL — both are served as `application/octet-stream` with
-`nosniff`, so the player refuses them. Point the tag at the CDN instead:
+`gif/aterkeep-<lang>.gif` is the same 30 seconds as the MP4, 720px wide at
+10 fps, ~700 KB each. They exist for one reason: **a GitHub README cannot play
+a video file.** An animated GIF is the only thing that moves on the page.
 
-```html
-<video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-en.mp4"
-       controls width="100%">
-  <a href="promo/video/aterkeep-en.mp4">Watch the 30-second overview</a>
-</video>
+That is worth stating plainly, because the obvious approaches all fail — each
+of these was tried against GitHub's real README renderer:
+
+| Attempt | What GitHub does |
+|---|---|
+| `<video src="...">` | **Tag deleted entirely.** Leaves an empty paragraph. |
+| `![x](demo.mp4)` | Renders `<img src="…mp4">` — a broken image. |
+| `<img src="…mp4">` | Proxied through camo, still a broken image. |
+| Bare `.mp4` URL on its own line | Plain text link. |
+
+Note the first row: GitHub's `/markdown` **API** keeps `<video>`, so testing
+there tells you it works. The renderer that actually draws a repository README
+does not. Test against `/repos/{owner}/{repo}/readme`, not `/markdown`.
+
+Videos do play on GitHub when you drag one into an issue or PR comment — that
+routes through GitHub's own attachment host. There is no supported way to
+produce such a URL for a file committed to the repo, which is why the GIF
+exists.
+
+### Regenerating the GIFs
+
+```bash
+ffmpeg -i promo/video/aterkeep-en.mp4 \
+  -vf "fps=10,scale=720:-1:flags=lanczos,split[a][b];[a]palettegen=max_colors=128[p];[b][p]paletteuse=dither=bayer:bayer_scale=3" \
+  promo/gif/aterkeep-en.gif
 ```
 
-GitHub's sanitizer keeps `src`, `controls` and `width`; it strips `poster`,
-`preload` and `autoplay`, so don't bother with them. Always leave a plain link
-inside the tag — that is what shows if the CDN is unreachable.
+The palette pass matters — without it the flat UI colours band badly and the
+file gets *larger*, not smaller. Bayer dithering beats the default here because
+the source is flat colour, not photography.
 
 | | | | |
 |---|---|---|---|

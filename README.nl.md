@@ -13,13 +13,11 @@
 ---
 
 <p align="center">
-  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-nl.mp4" controls width="100%">
-    <a href="promo/video/aterkeep-nl.mp4">Bekijk het overzicht van 30 seconden</a>
-  </video>
+  <a href="promo/video/aterkeep-nl.mp4"><img src="promo/gif/aterkeep-nl.gif" alt="aterkeep - overzicht van 30 seconden" width="100%"/></a>
 </p>
 
 <p align="center">
-  <sub><b>Bekijk het overzicht van 30 seconden.</b> Speelt niet af? <a href="promo/video/aterkeep-nl.mp4">Download de video</a>.<br/>
+  <sub><b>Bekijk het overzicht van 30 seconden.</b> Klik op de preview voor de MP4.<br/>
   Andere talen: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
 </p>
 
