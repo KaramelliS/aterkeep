@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" role="img" aria-label="aterkeep — keep your Aternos server online 24/7">
+  <!-- Sosyal onizleme karti (1200x630). Panelin token'lariyla ayni dil.
+       PNG gerekirse: herhangi bir tarayicida ac, 1200x630 ekran goruntusu al;
+       ya da  rsvg-convert social.svg -o social.png  (varsa). -->
+  <defs>
+    <radialGradient id="bg" cx="18%" cy="0%" r="120%">
+      <stop offset="0%" stop-color="#0e1116"/>
+      <stop offset="60%" stop-color="#0b0d10"/>
+    </radialGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- brand mark -->
+  <g transform="translate(96,96)">
+    <rect width="96" height="96" rx="22" fill="#27c46b"/>
+    <path d="M30 33 L45 48 L30 63" fill="none" stroke="#06140c" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+    <line x1="51" y1="64" x2="70" y2="64" stroke="#06140c" stroke-width="8" stroke-linecap="round"/>
+  </g>
+  <text x="212" y="170" font-family="'JetBrains Mono',monospace" font-size="60" font-weight="700" fill="#dfe4ec">aterkeep</text>
+
+  <!-- headline -->
+  <text x="96" y="320" font-family="Inter,system-ui,sans-serif" font-size="72" font-weight="700" fill="#dfe4ec" letter-spacing="-1">Keep your Aternos server</text>
+  <text x="96" y="404" font-family="Inter,system-ui,sans-serif" font-size="72" font-weight="700" fill="#dfe4ec" letter-spacing="-1">online <tspan fill="#27c46b">24/7</tspan>.</text>
+
+  <!-- status chip -->
+  <g transform="translate(96,470)">
+    <rect width="150" height="40" rx="6" fill="rgba(39,196,107,0.10)" stroke="rgba(39,196,107,0.45)"/>
+    <circle cx="24" cy="20" r="5" fill="#27c46b"/>
+    <text x="40" y="27" font-family="'JetBrains Mono',monospace" font-size="18" fill="#27c46b">ONLINE</text>
+  </g>
+  <text x="270" y="497" font-family="'JetBrains Mono',monospace" font-size="22" fill="#98a2b3">beeestork.aternos.me · TPS 20.0 · 2/20</text>
+
+  <!-- feature strip -->
+  <text x="96" y="576" font-family="Inter,system-ui,sans-serif" font-size="24" fill="#868e99">Automatic queue confirmation · signs in for you · one binary · encrypted</text>
+</svg>
