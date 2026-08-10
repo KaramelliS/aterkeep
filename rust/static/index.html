@@ -136,6 +136,11 @@
       </div>
     </div>
 
+    <!-- ToS uyarisi: alici bunu KURULUMDAN ONCE gormeli. Satilan bir uruinde
+         "hesabin askiya alinabilir" bilgisini gizlemek savunulamaz. -->
+    <div class="notice notice-warn" data-i18n-html="tos_warning">Aternos' terms forbid keeping a server online with bots or scripts.</div>
+    <p class="muted"><a href="https://support.aternos.org/hc/en-us/articles/31771896948253-24-7-Hosting" target="_blank" rel="noopener noreferrer" data-i18n="tos_link">Read Aternos' 24/7 hosting rules</a></p>
+
     <div class="notice notice-err" data-i18n-html="setup_danger">These cookies grant full access to your Aternos account. Never share them and never screenshot them. Do not share the <code>config/</code> folder either.</div>
     <div class="setup-status" id="setupStatus"></div>
     <button class="btn btn-primary btn-wide" id="setupSubmit" data-i18n="setup_submit">Install and start</button>
@@ -179,6 +184,14 @@
         <span class="clock mono" id="clock">--:--:--</span>
       </div>
     </header>
+
+    <!-- Durum bandi: bu urunun tek sorusu "sunucu acik mi". Cevabi bir cip
+         degil, tam genislik bir bant tasir (bkz. DESIGN.md §0/§4). -->
+    <div class="statusband" id="statusBand">
+      <span class="statusband-dot" id="statusBandDot"></span>
+      <span class="statusband-text" id="statusBandText">—</span>
+      <span class="statusband-addr mono" id="statusBandAddr"></span>
+    </div>
 
     <div class="banner banner-err" id="sessionBanner" hidden>
       <span id="sessionBannerText"></span>

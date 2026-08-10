@@ -149,6 +149,11 @@ pub(super) const TR: T = &[
     ("setup_pick_server", "Hesabinda birden fazla sunucu var — ayakta tutulacak olani sec:"),
     ("setup_err_account", "Aternos kullanici adini ve parolani gir"),
     ("session_auto", "kendini yeniliyor"),
+    (
+        "tos_warning",
+        "<b>Aternos'un kurallari sunucuyu bot veya scriptle acik tutmayi yasakliyor</b> ve yapay aktiviteyi otomatik denetlediklerini soyluyorlar. aterkeep kullanmak sunucunun ya da hesabin askiya alinmasina yol acabilir. Bu riski kabul etmeyi sen seciyorsun.",
+    ),
+    ("tos_link", "Aternos'un 7/24 barindirma kurallarini oku"),
     ("setup_submit", "Kur ve başlat"),
     ("setup_busy", "kuruluyor…"),
     ("setup_ok", "tamam"),

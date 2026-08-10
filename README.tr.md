@@ -111,6 +111,24 @@ Makine yeniden başlayınca kendi kalkması için: **[docs/AUTOSTART.md](docs/AU
 - API string'leri binary'de şifreli, runtime'da senin anahtarınla çözülür
 - Panel sadece `127.0.0.1`'e bağlanır
 
+## ⚠ Satin almadan once: Aternos'un kurallari
+
+Aternos'un kendi destek dokumaninda soyle yaziyor:
+
+> *"Sunucunu 7/24 acik tutmak icin bot, script veya baska hilelerle Aternos
+> sistemini asmaya calismak kurallarimiza aykiridir… Sistem yapay aktiviteyi
+> otomatik olarak denetler."*
+> — [24/7 Hosting](https://support.aternos.org/hc/en-us/articles/31771896948253-24-7-Hosting)
+
+Bu tarif dogrudan bu urunu anlatiyor. **aterkeep kullanmak sunucunun ya da
+Aternos hesabinin askiya alinmasina veya silinmesine yol acabilir.** Bunu
+engellemek elimizde degil; anti-idle bot da aktiviteyi gizlemez, aksine daha
+gorunur kilar.
+
+Urun oldugu gibi satiliyor: yalnizca senin kontrolundeki ve riski goze
+aldigin hesaplarda kullan. Bu kabul edilebilir degilse satin alma — 7/24
+sunucu icin desteklenen yol ucretli bir Minecraft barindirma hizmetidir.
+
 ## Lisans
 
 **aterkeep ticari bir yazılımdır — açık kaynak değildir.**

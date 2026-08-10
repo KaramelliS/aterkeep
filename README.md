@@ -4,7 +4,7 @@
   <img src="rust/static/logo.svg" alt="aterkeep logo" width="280"/>
 </p>
 
-**Self-hosted Aternos server manager & keep-alive dashboard.** A single Rust binary (~1.7 MB) that keeps your free Aternos Minecraft server online 24/7 and gives you a modern web panel to control it — no browser automation, pure HTTP.
+**Self-hosted Aternos server manager & keep-alive dashboard.** A single Rust binary (~2.3 MB) that keeps your free Aternos Minecraft server online 24/7 and gives you a modern web panel to control it — no browser automation, pure HTTP.
 
 <p align="center">
   <a href="README.tr.md">Türkçe</a> ·
@@ -27,7 +27,7 @@
 
 - **Automatic queue confirmation** — when your turn comes up Aternos opens a ~30 second window and drops you to the back of the queue if nobody answers. This is the step that makes unattended 24/7 possible, and the reason keep-alive scripts sit in the queue forever.
 - **Signs in for you** — set up with your Aternos account and aterkeep obtains the session cookie itself, then renews it when it expires. No DevTools, no monthly copy-paste.
-- **Keep-alive loop** — polls every 90 s, restarts the server automatically when it goes offline (toggleable)
+- **Keep-alive loop** — polls every 30 s, restarts the server automatically when it goes offline (toggleable)
 - **Anti-idle bot** — a Minecraft client that joins when the server is up so it isn't shut down for being empty
 - **Web dashboard** — live status, queue position, start/stop/restart controls, auto-start switch
 - **Server console** — watch the live server log from your browser
@@ -40,14 +40,17 @@
 
 ## Platforms
 
-aterkeep is a single self-contained binary — one file, no runtime, no dependencies.
+aterkeep is a single self-contained binary — one file, no runtime to install.
+It does shell out to **`curl`**, which ships with Windows 10+, macOS and most
+Linux distributions (`pkg install curl` on Termux). That is the only external
+requirement.
 
 | Platform | Notes |
 |---|---|
 | **Windows** | 10/11 — `aterkeep.exe`, double-click or run from PowerShell/cmd. |
-| **Linux** | x86_64 & aarch64 — `./aterkeep`. |
-| **macOS** | Intel & Apple Silicon — `./aterkeep`. |
-| **Android** | Via [Termux](docs/TERMUX.md) — runs natively on `aarch64`, keep-alive on your phone. |
+| **Linux** | x86_64 — `./aterkeep`. |
+| **macOS** | Apple Silicon — `./aterkeep`. |
+| **Android** | Via [Termux](docs/TERMUX.md) — builds from source only; no prebuilt binary. |
 
 ## Requirements
 
@@ -60,14 +63,20 @@ aterkeep is a single self-contained binary — one file, no runtime, no dependen
 
 Download the right binary for your OS from the [Releases](../../releases) page:
 
-| OS | Binary |
+| OS | Asset |
 |---|---|
-| Windows | `aterkeep.exe` (or `aterkeep-windows-x86_64.exe`) |
-| Linux x86_64 | `aterkeep-linux-x86_64` |
-| Linux aarch64 | `aterkeep-linux-aarch64` |
-| macOS Intel | `aterkeep-macos-x86_64` |
-| macOS Apple Silicon | `aterkeep-macos-aarch64` |
-| Android (Termux) | `aterkeep-android-aarch64` — see [docs/TERMUX.md](docs/TERMUX.md) |
+| Windows 10/11 | `aterkeep-windows.exe` |
+| Linux x86_64 | `aterkeep-linux-amd64` |
+| macOS (Apple Silicon) | `aterkeep-macos-arm64` |
+| — | `aterkeep-extras.zip` — the anti-idle bot, autostart installers and docs |
+
+**Download `aterkeep-extras.zip` too** if you want the bot or autostart, and
+unpack it next to the binary. The daemon alone cannot run the bot: it needs the
+`bot/` folder from that archive.
+
+Linux aarch64, macOS Intel and Android are **not** prebuilt — building them
+needs access to the private engine crate, so they are unavailable to buyers
+today. Do not plan around them.
 
 On Linux/macOS/Android, make it executable after downloading:
 
@@ -275,7 +284,7 @@ machine (or malware running as your user) can read it. Keep the host clean.
 
 | Problem | Fix |
 |---|---|
-| Panel shows `LOGGED OUT` | Session expired → press **↻ Oturum** in the panel header, or delete `config/session.enc` and set up again. |
+| Panel shows `SESSION` | The Aternos session expired → press **Refresh cookies** in the banner, or switch to account login so it renews itself. |
 | Server keeps stopping | That's normal: Aternos pauses empty servers after ~60 s idle. Keep the daemon running; it restarts within 90 s. For truly uninterrupted uptime, keep a Minecraft client/bot connected. |
 | Forgot the panel password | Cannot be recovered — it is never stored. Delete the `config/` folder and run setup again with a fresh session. |
 | `decrypt failed (yanlis key?)` on start | Wrong password, or `ATERKEEP_KEY` is set to the wrong value. |
@@ -303,6 +312,23 @@ npm install          # mineflayer'ı kurar (tek seferlik)
 ```
 
 Ardından bot'ı **panel üzerinden** açıp kapatabilirsiniz — daemon `config/bot.json`'u yazar, bot durumunu `config/bot-status.json`'a raporlar. Ayrıntılı doküman: [`docs/BOT.md`](docs/BOT.md), bot README'si: [`bot/README.md`](bot/README.md).
+
+## ⚠ Before you buy: Aternos' terms
+
+Aternos' own support documentation says:
+
+> *"Trying to bypass Aternos system by using bots, scripts, or other tricks to
+> keep your server on 24/7 is against our rules… The system automatically
+> checks for artificial activity."*
+> — [24/7 Hosting](https://support.aternos.org/hc/en-us/articles/31771896948253-24-7-Hosting)
+
+That describes this product. **Using aterkeep may get your server or your
+Aternos account suspended or deleted.** There is no way for us to prevent that,
+and the anti-idle bot makes the activity easier to spot, not harder.
+
+This is sold as-is, for use on accounts you control and are willing to risk.
+If that is not acceptable to you, do not buy it — a paid Minecraft host is the
+supported way to run a server around the clock.
 
 ## License
 
