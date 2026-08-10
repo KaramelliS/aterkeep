@@ -10,6 +10,21 @@
   <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-ko.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-ko.mp4">30초 소개 영상 보기</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>30초 소개 영상 보기.</b> 재생되지 않나요? <a href="promo/video/aterkeep-ko.mp4">영상 다운로드</a>.<br/>
+  다른 언어: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
+
+---
+
 ## 기능
 
 - **대기열 자동 확인** — 차례가 오면 Aternos가 약 30초짜리 확인 창을 여는데, 아무도 응답하지 않으면 맨 뒤로 밀립니다. 무인 24시간 운영을 가능하게 하는 단계가 바로 이것입니다.

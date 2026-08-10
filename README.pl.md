@@ -10,6 +10,21 @@
   <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a> · <a href="README.zh.md">中文</a> · <a href="README.ja.md">日本語</a> · <a href="README.ko.md">한국어</a> · <a href="README.nl.md">Nederlands</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-pl.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-pl.mp4">Obejrzyj 30-sekundowy przeglad</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>Obejrzyj 30-sekundowy przeglad.</b> Nie odtwarza sie? <a href="promo/video/aterkeep-pl.mp4">Pobierz wideo</a>.<br/>
+  Inne jezyki: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a></sub>
+</p>
+
+---
+
 ## Funkcje
 
 - **Automatyczne potwierdzanie kolejki** — gdy przychodzi twoja kolej, Aternos otwiera okno na około 30 sekund; bez odpowiedzi wracasz na koniec. To ten krok umożliwia pracę 24/7 bez nadzoru.

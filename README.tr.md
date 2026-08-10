@@ -10,6 +10,21 @@
   <a href="README.md">English</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-tr.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-tr.mp4">30 saniyelik tanitimi izle</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>30 saniyelik tanitimi izle.</b> Oynatilmiyor mu? <a href="promo/video/aterkeep-tr.mp4">Videoyu indir</a>.<br/>
+  Diger diller: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
+
+---
+
 ## Özellikler
 
 - **Otomatik sıra onayı** — sıra sana geldiğinde Aternos ~30 saniyelik bir onay penceresi açar; cevap gelmezse kuyruğun sonuna atılırsın. 7/24 çalışmanın asıl şartı bu adımdır ve keep-alive scriptlerinin sonsuza kadar kuyrukta dönmesinin sebebi de budur.

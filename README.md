@@ -23,14 +23,16 @@
 
 ---
 
-**[▶ Watch the 30-second overview](promo/video/aterkeep-en.mp4)** — also in
-[Türkçe](promo/video/aterkeep-tr.mp4), [Deutsch](promo/video/aterkeep-de.mp4),
-[Français](promo/video/aterkeep-fr.mp4), [Español](promo/video/aterkeep-es.mp4),
-[Italiano](promo/video/aterkeep-it.mp4), [Português](promo/video/aterkeep-pt.mp4),
-[Русский](promo/video/aterkeep-ru.mp4), [العربية](promo/video/aterkeep-ar.mp4),
-[中文](promo/video/aterkeep-zh.mp4), [日本語](promo/video/aterkeep-ja.mp4),
-[한국어](promo/video/aterkeep-ko.mp4), [Nederlands](promo/video/aterkeep-nl.mp4),
-[Polski](promo/video/aterkeep-pl.mp4).
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-en.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-en.mp4">Watch the 30-second overview</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>Watch the 30-second overview.</b> Not playing? <a href="promo/video/aterkeep-en.mp4">Download the video</a>.<br/>
+  Other languages: <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-zh.mp4">中文</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
 
 ---
 

@@ -10,6 +10,21 @@
   <a href="README.md">English</a> · <a href="README.tr.md">Türkçe</a> · <a href="README.de.md">Deutsch</a> · <a href="README.fr.md">Français</a> · <a href="README.es.md">Español</a> · <a href="README.it.md">Italiano</a> · <a href="README.pt.md">Português</a> · <a href="README.ru.md">Русский</a>
 </p>
 
+---
+
+<p align="center">
+  <video src="https://cdn.jsdelivr.net/gh/KaramelliS/aterkeep@main/promo/video/aterkeep-zh.mp4" controls width="100%">
+    <a href="promo/video/aterkeep-zh.mp4">观看 30 秒介绍</a>
+  </video>
+</p>
+
+<p align="center">
+  <sub><b>观看 30 秒介绍.</b> 无法播放？ <a href="promo/video/aterkeep-zh.mp4">下载视频</a>.<br/>
+  其他语言: <a href="promo/video/aterkeep-en.mp4">English</a> · <a href="promo/video/aterkeep-tr.mp4">Türkçe</a> · <a href="promo/video/aterkeep-de.mp4">Deutsch</a> · <a href="promo/video/aterkeep-fr.mp4">Français</a> · <a href="promo/video/aterkeep-es.mp4">Español</a> · <a href="promo/video/aterkeep-it.mp4">Italiano</a> · <a href="promo/video/aterkeep-pt.mp4">Português</a> · <a href="promo/video/aterkeep-ru.mp4">Русский</a> · <a href="promo/video/aterkeep-ar.mp4">العربية</a> · <a href="promo/video/aterkeep-ja.mp4">日本語</a> · <a href="promo/video/aterkeep-ko.mp4">한국어</a> · <a href="promo/video/aterkeep-nl.mp4">Nederlands</a> · <a href="promo/video/aterkeep-pl.mp4">Polski</a></sub>
+</p>
+
+---
+
 ## 功能
 
 - **自动确认排队** — 轮到你时 Aternos 会打开约 30 秒的确认窗口，无人响应就会被排到队尾。正是这一步让无人值守的 7×24 运行成为可能。
