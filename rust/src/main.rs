@@ -15,6 +15,7 @@
 mod bot;
 mod cli;
 mod config;
+mod mcbot;
 mod translations;
 mod unlock;
 mod watch;
@@ -48,6 +49,7 @@ async fn main() {
                 println!("  aterkeep                 paneli baslat (http://127.0.0.1:4041)");
                 println!("  aterkeep import <dosya>  hazir bir session.json'u sifreleyip ice aktar");
                 println!("  aterkeep --version       surumu yazdir\n");
+                println!("  aterkeep bot-probe <host> [port]  anti-idle botu tek basina calistir");
                 println!("ORTAM DEGISKENLERI:");
                 println!("  ATERKEEP_KEY   panel parolasi (arka planda calisirken ZORUNLU)");
                 println!("  ATERKEEP_DIR   config klasoru (varsayilan: ./config)");
@@ -55,6 +57,39 @@ async fn main() {
             }
             _ => {}
         }
+    }
+
+    // Botu oturum/panel olmadan, dogrudan bir sunucuya karsi calistirir.
+    //
+    // NEDEN VAR: bot artik daemon'in icinde oldugu icin "bot girmiyor"
+    // sikayetini elle yeniden uretmenin baska yolu yok. Node surumunde
+    // `node bot/index.js` calistirilabiliyordu (bkz. docs/BOT.md); bu komut
+    // onun yerini aliyor. Ayni zamanda protokol degisikliklerini gercek bir
+    // sunucuya karsi dogrulamanin yolu.
+    if args.len() > 1 && args[1] == "bot-probe" {
+        let host = args.get(2).cloned().unwrap_or_else(|| "127.0.0.1".into());
+        let port: u16 = args
+            .get(3)
+            .and_then(|s| s.parse().ok())
+            .unwrap_or(25565);
+        let mut cfg = aterkeep_core::BotConfig::default();
+        cfg.host = host.clone();
+        cfg.port = port;
+        println!("bot-probe: {host}:{port} (Ctrl-C ile cik)");
+        match mcbot::ping(&host, port).await {
+            Ok(i) => println!(
+                "ping: {} (proto {}) — bot max: {} (proto {})",
+                i.version_name,
+                i.protocol,
+                mcbot::MAX_SUPPORTED_VERSION,
+                mcbot::MAX_SUPPORTED_PROTOCOL
+            ),
+            Err(e) => println!("ping basarisiz: {e}"),
+        }
+        let dir = std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+        let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        mcbot::run(cfg, dir, stop).await;
+        return;
     }
     if args.len() > 1 && args[1] == "import" {
         let path = args.get(2).map(|s| s.as_str()).unwrap_or("session.json");

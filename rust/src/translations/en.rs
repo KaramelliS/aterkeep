@@ -240,6 +240,10 @@ pub(super) const EN: T = &[
         "bot_err_whitelist",
         "<b>The server has a whitelist</b> and the bot is not on it. Add the bot's name to the whitelist, or turn the whitelist off in the Settings tab.",
     ),
+    (
+        "bot_err_vanish_no_permission",
+        "<b>The bot is visible on the server:</b> it joined, so an empty server is no longer stopped, but <code>/gamemode</code> and <code>/tp</code> need operator rights, so it could not hide itself. Add the bot's name under <b>Players → Operators</b> in the Aternos panel.",
+    ),
     ("bot_enabled", "bot enabled"),
     ("bot_disabled", "bot disabled"),
     ("bot_started", "bot started"),
