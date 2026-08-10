@@ -15,5 +15,7 @@
     <string name="waiting_panel">Panel baslatiliyor…</string>
     <string name="panel_failed">Panel 127.0.0.1:4041 uzerinde acilmadi. Servis kayitlarina bak.</string>
     <string name="view_log">Kayitlari gor</string>
-    <string name="unsupported_abi">Bu cihaz arm64 (aarch64) degil. aterkeep bu APK'da yalnizca arm64 cihazlari destekliyor.</string>
+    <!-- Kesme isareti (') KULLANMA: Android string kaynaklarinda escape edilmesi
+         gerekiyor, aksi halde aapt kaynagi hic derlemiyor. -->
+    <string name="unsupported_abi">Bu cihaz arm64 (aarch64) degil. Bu APK yalnizca arm64 cihazlari destekliyor.</string>
 </resources>
