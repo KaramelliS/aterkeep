@@ -67,20 +67,3 @@ pub(crate) fn prompt(label: &str) -> String {
     io::stdin().read_line(&mut s).ok();
     s.trim().to_string()
 }
-
-pub(crate) fn parse_cookies(raw: &str) -> Vec<Cookie> {
-    raw.split(';')
-        .filter_map(|pair| {
-            let pair = pair.trim();
-            let (name, value) = pair.split_once('=')?;
-            let name = name.trim().to_string();
-            if name.is_empty() {
-                return None;
-            }
-            Some(Cookie {
-                name,
-                value: value.trim().to_string(),
-            })
-        })
-        .collect()
-}

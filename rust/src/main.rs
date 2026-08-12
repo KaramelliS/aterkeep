@@ -6,7 +6,6 @@
 //!
 //!   unlock    parola alma, oturumun cozulmesi
 //!   cli       surum/yardim, `import` komutu
-//!   wizard    terminal kurulum sihirbazi
 //!   watch     oturum omru olcumu + otomatik yeniden giris
 //!   web/      HTTP katmani (kendi icinde ayrilmis)
 //!   bot       anti-idle bot sureci
@@ -20,8 +19,6 @@ mod translations;
 mod unlock;
 mod watch;
 mod web;
-mod wizard;
-
 use aterkeep_core::{run_keepalive, LogTx, SharedState, State};
 use config::AppConfig;
 use std::path::PathBuf;
@@ -30,7 +27,6 @@ use tokio::sync::Mutex;
 
 use cli::cmd_import;
 use unlock::{acquire_password, load_session};
-use wizard::run_wizard;
 
 #[tokio::main]
 async fn main() {
@@ -102,23 +98,11 @@ async fn main() {
         }
     }
 
-    let mut cfg = AppConfig::load();
+    let cfg = AppConfig::load();
 
-    // session.enc yoksa:
-    //   - interaktif terminal (TTY) → CLI wizard calistir
-    //   - degilse (arka plan/service/systemd) → wizard'i atla, panel setup-modunda acilsin
-    //     (web wizard /api/setup ile session.enc uretir, sonra self-restart).
-    if !config::session_path().exists() && std::io::IsTerminal::is_terminal(&std::io::stdin()) {
-        println!("=== aterkeep ilk kurulum ===");
-        println!("Cerezlerini girmen gerek. aternos.org'da F12 -> Application -> Cookies.");
-        if let Err(e) = run_wizard().await {
-            eprintln!("kurulum hatasi: {e}");
-            std::process::exit(1);
-        }
-        cfg = AppConfig::load();
-    }
-
-    // session.enc hala yoksa → setup modu: client olmadan paneli ac, /api/setup beklenir.
+    // session.enc yoksa → setup modu: client olmadan paneli ac, /api/setup beklenir.
+    // Web wizard hesap girisi + cerez yapistirma ikisini de destekler;
+    // eski CLI wizard yalnizca cerez istiyordu, kaldirildi.
     if !config::session_path().exists() {
         println!("=== aterkeep kurulum modu ===");
         println!(
