@@ -1,5 +1,5 @@
 # aterkeep
-
+## Project sponsored : discord.gg/kodyazar 
 <p align="center">
   <img src="rust/static/logo.svg" alt="aterkeep logo" width="280"/>
 </p>
